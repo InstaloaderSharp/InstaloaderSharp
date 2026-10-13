@@ -1,0 +1,454 @@
+# InstaloaderSharp
+
+A C# / .NET Framework 4.8.1 rewrite of [Instaloader](https://github.com/instaloader/instaloader).
+It downloads pictures and videos along with their captions and other metadata from Instagram: whole
+profiles, single posts, hashtags, locations, your feed, your saved posts, stories and highlights.
+
+**Version 1.0.0**, targets compatibility with Instaloader 4.15.4.
+
+No knowledge of the Python version is needed to use it; this document covers everything from a first
+download to the advanced options.
+
+* [Requirements and building](#requirements-and-building)
+* [Quick start](#quick-start)
+* [Targets: what to download](#targets-what-to-download)
+* [Where files go and what they contain](#where-files-go-and-what-they-contain)
+* [Logging in](#logging-in)
+* [Choosing what to download](#choosing-what-to-download)
+* [Keeping an archive up to date](#keeping-an-archive-up-to-date)
+* [Filtering posts](#filtering-posts)
+* [Customizing file and directory names](#customizing-file-and-directory-names)
+* [Interrupting and resuming](#interrupting-and-resuming)
+* [Other options](#other-options)
+* [Reading options from a file](#reading-options-from-a-file)
+* [Exit codes](#exit-codes)
+* [Tips and troubleshooting](#tips-and-troubleshooting)
+* [Interoperability with Instaloader](#interoperability-with-instaloader)
+* [Library use](#library-use)
+* [Differences from Instaloader](#differences-from-instaloader)
+* [Disclaimer](#disclaimer)
+
+## Requirements and building
+
+* Windows 10 version 1607 or later (requires HTTP/2, which the program gets from Windows' built-in
+  WinHTTP).
+* .NET Framework 4.8.1.
+
+Open `InstaloaderSharp.sln` in Visual Studio (2015 or later) and build, or run:
+
+```
+"C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe" InstaloaderSharp.sln /p:Configuration=Release
+```
+
+The result is a single file, `InstaloaderSharp\bin\Release\InstaloaderSharp.exe`, without other
+dependencies. Copy it wherever you like. You may rename it, for example to `instaloader.exe`; the examples
+below use `InstaloaderSharp.exe`.
+
+## Quick start
+
+Open a command prompt in the folder where the downloads should be saved and run:
+
+```
+InstaloaderSharp.exe instagram
+```
+
+This downloads all posts of the public profile `instagram` (pictures, videos, captions and metadata) and
+its profile picture into a new folder `instagram`. Progress is printed as it goes:
+
+```
+[1/1] Downloading profile instagram
+Retrieving posts from profile instagram.
+[   1/8123] instagram\2026-10-08_17-10-31_UTC.jpg [fur real, every single one of…] instagram\2026-10-08_17-10-31_UTC.mp4 json
+[   2/8123] ...
+```
+
+Run the same command again later and only new posts are downloaded, while existing files are skipped
+(`... exists`). Add `--fast-update` (`-F`) to stop as soon as the first already-downloaded post is reached,
+which makes updates much faster:
+
+```
+InstaloaderSharp.exe --fast-update instagram
+```
+
+Press **Ctrl+C** at any time to stop. The download can be continued later; see
+[Interrupting and resuming](#interrupting-and-resuming).
+
+Show all options with:
+
+```
+InstaloaderSharp.exe --help
+```
+
+## Targets: what to download
+
+Any number of targets can be given on one command line, e.g. `InstaloaderSharp.exe profile1 profile2 "#cats"`.
+
+| Target | Downloads | Login required |
+| --- | --- | --- |
+| `profilename` | All posts and the profile picture of a profile. Private profiles require that you are logged in and follow them. | Only for private profiles |
+| `@profilename` | All profiles that `profilename` follows (its "followees"). | Yes |
+| `"#hashtag"` | Posts with that hashtag. Quote it, since `#` may be special in some shells. | Yes |
+| `%location_id` | Posts tagged with a location, given by its numeric Instagram ID (the number in `instagram.com/explore/locations/ID/`). | Yes |
+| `:feed` | Posts of your own feed (posts of accounts you follow; posts that Instagram suggests from other accounts are skipped). | Yes |
+| `:stories` | Current stories of all profiles you follow. | Yes |
+| `:saved` | Posts you marked as saved. | Yes |
+| `-- -SHORTCODE` | A single post. The shortcode is the part after `/p/` or `/reel/` in a post's URL, e.g. `https://www.instagram.com/p/DdwalmrkTSK/` → `-- -DdwalmrkTSK`. The `--` is needed because the target starts with `-`; put all options before it. | No (unless the post is private) |
+| `file.json` / `file.json.xz` | Re-downloads a post or story item from a metadata file that was saved earlier. | Depends |
+
+Examples:
+
+```
+InstaloaderSharp.exe -- -DdwalmrkTSK
+InstaloaderSharp.exe --login myname --count 50 "#sunset"
+InstaloaderSharp.exe --login myname :stories :saved
+InstaloaderSharp.exe instagram\2026-09-26_16-01-00_UTC.json.xz
+```
+
+A trailing `/` on a target is ignored, so shell auto-completion of a downloaded folder name works.
+
+## Where files go and what they contain
+
+By default, every target gets its own folder (named after the target) in the current directory. For a
+profile, the folder looks like this:
+
+```
+instagram\
+    2025-09-20_00-00-36_UTC_profile_pic.jpg   profile picture (date = when it was uploaded)
+    id                                        the profile's numeric ID (used to detect renames)
+    instagram_25025320.json.xz                profile metadata
+    2026-10-08_17-10-31_UTC.jpg               picture, or thumbnail of a video
+    2026-10-08_17-10-31_UTC.mp4               video
+    2026-10-08_17-10-31_UTC.txt               caption
+    2026-10-08_17-10-31_UTC.json.xz           post metadata (likes, comments count, location, ...)
+    2026-09-26_16-01-00_UTC_1.jpg             a post with several pictures ("sidecar")
+    2026-09-26_16-01-00_UTC_2.jpg               gets one numbered file per picture/video
+    2026-09-26_16-01-00_UTC_3.jpg
+```
+
+* File names are the post's date and time in UTC. Each file's modification time is set to the time the post
+  was created.
+* `.json.xz` files are xz-compressed JSON. Use `--no-compress-json` to get plain, readable `.json` files
+  instead, or `--no-metadata-json` to not save them at all.
+* Characters that are not allowed in Windows file names are replaced by similar-looking Unicode characters.
+  For example, the `:feed` target is saved in a folder named `：feed` (with a full-width colon).
+* If a profile is renamed on Instagram, its stored `id` lets the program find it again, and the folder is
+  renamed accordingly.
+* If a caption changes on Instagram, the old `.txt` file is kept as `..._old_01.txt`.
+
+## Logging in
+
+Public profiles and single public posts can be downloaded without an account. Logging in is needed for
+private profiles you follow, stories, highlights, hashtags, locations, your feed and saved posts, and
+comments. Logged in, you also get higher-quality pictures and videos.
+
+> **Note:** Downloading in large amounts can get an account temporarily restricted by Instagram. Consider
+> using a secondary account.
+
+There are two ways to log in.
+
+### Option 1: with your username and password
+
+```
+InstaloaderSharp.exe --login YOUR-USERNAME profilename
+```
+
+You are asked for your password (it is not shown while typing). If your account uses two-factor
+authentication, you are asked for the code as well. Alternatively the password can be given with
+`--password` (`-p`), but it may then end up in your command history.
+
+After a successful login, a **session file** is saved, so you do not need to enter your password again:
+next time, `--login YOUR-USERNAME` just loads the session. Session files are stored in
+`%LOCALAPPDATA%\Instaloader\session-YOUR-USERNAME`; use `--sessionfile FILE` (`-f`) to choose another
+location. The session file contains the session cookie (not your password), but it still grants access to
+your account, so keep it private.
+
+### Option 2: import the login from your web browser
+
+If logging in with a password does not work (Instagram sometimes asks for extra verification), log in to
+instagram.com in a web browser and import its cookies:
+
+```
+InstaloaderSharp.exe --load-cookies firefox
+```
+
+Supported browsers: `chrome`, `chromium`, `edge`, `brave`, `opera`, `opera_gx`, `vivaldi`, `firefox` and
+`librewolf`. The program prints which account it is logged in as and saves a session file, so afterwards
+you can simply use `--login YOUR-USERNAME`. To read cookies of a specific browser profile, pass its cookie
+database with `--cookiefile FILE` (`-B`). Chromium-based browsers may need to be closed while cookies are
+read. Firefox usually works best, because recent Chrome versions encrypt cookies in a way other programs
+cannot decrypt.
+
+`--login` and `--load-cookies` cannot be used together.
+
+## Choosing what to download
+
+For every post (by default pictures, videos, video thumbnails, captions and metadata are downloaded):
+
+| Option | Effect |
+| --- | --- |
+| `--no-pictures` | Do not download pictures (and video thumbnails). Cannot be combined with `--fast-update`. |
+| `--no-videos`, `-V` | Do not download videos. |
+| `--no-video-thumbnails` | Do not download the thumbnail pictures of videos. |
+| `--no-captions` | Do not create caption `.txt` files. |
+| `--no-metadata-json` | Do not create `.json.xz` metadata files. |
+| `--no-compress-json` | Create readable `.json` files instead of compressed `.json.xz` files. |
+| `--geotags`, `-G` | Also save the location of each post, with a Google Maps link, as `..._location.txt`. |
+| `--comments`, `-C` | Also save the comments of each post as `..._comments.json`; existing files are updated (login required). |
+| `--slide N` | For posts with several pictures, download only some of them: `--slide 2` (the second), `--slide last`, `--slide 2-4`, `--slide 3-last`. |
+| `--post-metadata-txt TEMPLATE` | What to write into the caption `.txt` file, e.g. `--post-metadata-txt "{likes} likes, {comments} comments"`. Can be given several times (one line each). See [templates](#customizing-file-and-directory-names). |
+| `--storyitem-metadata-txt TEMPLATE` | Like `--post-metadata-txt`, for stories (no file is written by default). |
+
+For every profile:
+
+| Option | Effect |
+| --- | --- |
+| `--no-posts` | Do not download the profile's posts (e.g. only the profile picture and metadata). |
+| `--no-profile-pic` | Do not download the profile picture. |
+| `--stories`, `-s` | Also download the profile's current stories (login required). |
+| `--highlights` | Also download the profile's story highlights; each highlight gets a subfolder (login required). |
+| `--tagged` | Also download posts in which the profile is tagged (into a `：tagged` subfolder, with a full-width colon). |
+| `--reels` | Also download the profile's reels. |
+| `--igtv` | No effect: Instagram has retired IGTV. Former IGTV videos are regular posts and reels now, downloaded with the posts and with `--reels`. Accepted for compatibility. |
+
+Example: download stories and highlights of two profiles, but no posts:
+
+```
+InstaloaderSharp.exe --login myname --no-posts --stories --highlights profile1 profile2
+```
+
+## Keeping an archive up to date
+
+* `--fast-update` (`-F`): for every target, stop at the first post that was already downloaded. Up to three
+  pinned posts at the top of a profile are taken into account.
+* `--latest-stamps [FILE]`: remember the date of the newest downloaded post, story, reel etc. of every
+  profile in a small database file (by default
+  `%LOCALAPPDATA%\Instaloader\latest-stamps.ini`), and only download newer items next time. Unlike
+  `--fast-update`, this works even if you delete or move the downloaded files.
+* `--count N` (`-c`): download at most N posts. Applies to hashtags, locations, `:feed` and `:saved`.
+
+```
+InstaloaderSharp.exe --fast-update --login myname --stories profile1 profile2
+InstaloaderSharp.exe --latest-stamps --login myname --stories profile1 profile2
+```
+
+## Filtering posts
+
+`--post-filter EXPRESSION` downloads only the posts for which the expression is true. Use the post
+properties listed below as variables. The syntax is that of Python expressions: comparison operators,
+`and`, `or`, `not`, `in`, arithmetic, strings in quotes, and lists. `datetime(year, month, day)` creates a
+date to compare with.
+
+```
+InstaloaderSharp.exe --post-filter="likes > 1000" profilename
+InstaloaderSharp.exe --post-filter="not is_video" profilename
+InstaloaderSharp.exe --post-filter="date_utc >= datetime(2024, 1, 1)" profilename
+InstaloaderSharp.exe --post-filter="'travel' in caption_hashtags and likes > 100" profilename
+InstaloaderSharp.exe --login myname --post-filter="viewer_has_liked" :feed
+```
+
+Wrap the expression in double quotes and use single quotes for strings inside it. Posts that do not match
+are reported as `skipped`. If the expression cannot be evaluated for a post (for example because a property
+is missing), the post is skipped with an error message.
+
+Useful post properties:
+
+| Property | Meaning |
+| --- | --- |
+| `date_utc`, `date_local` | When the post was created (UTC, or your local time zone). Compare `date_utc` with `datetime(...)`; `date_local` includes a time zone and cannot be compared with `datetime(...)`. |
+| `likes`, `comments` | Number of likes and comments. |
+| `is_video`, `typename` | Whether it is a video; the kind of post: `'GraphImage'`, `'GraphVideo'` or `'GraphSidecar'` (several pictures). |
+| `mediacount` | Number of pictures/videos in the post. |
+| `caption`, `caption_hashtags`, `caption_mentions` | The caption text; lists of the hashtags (lowercase, without `#`) and mentioned users (without `@`). |
+| `tagged_users` | List of users tagged in the post. |
+| `owner_username`, `owner_id` | The account that posted it. |
+| `video_duration`, `video_view_count` | For videos: length in seconds and number of views. |
+| `viewer_has_liked` | Whether you liked the post (when logged in). |
+| `is_sponsored`, `title`, `accessibility_caption` | Sponsored post; title (of videos); Instagram's automatic description. |
+| `shortcode`, `mediaid`, `url`, `video_url` | Identifiers and download URLs. |
+
+Strings have methods like Python's, e.g. `caption.lower()`, `caption.startswith('...')`; dates have
+`date_utc.year`, `date_utc.month`, `date_utc.weekday()` etc.
+
+`--storyitem-filter EXPRESSION` works the same for stories, with these properties: `date_utc`,
+`date_local`, `expiring_utc`, `is_video`, `typename`, `caption`, `caption_hashtags`, `caption_mentions`,
+`owner_username`, `owner_id`, `shortcode`, `mediaid`.
+
+## Customizing file and directory names
+
+Folder and file names are built from templates in which `{name}` is replaced by a property of the post:
+
+| Option | Default | Used for |
+| --- | --- | --- |
+| `--dirname-pattern` | `{target}` | The folder for posts. `{target}` is the target as given on the command line (profile name, `#hashtag`, `:feed`, ...); `{profile}` is the post owner's username. |
+| `--filename-pattern` | `{date_utc}_UTC` | File names of posts and stories, without extension. |
+| `--title-pattern` | `{date_utc}_UTC_{typename}` | File names of profile pictures and highlight covers. |
+
+All [post properties](#filtering-posts) can be used, plus `{filename}` (the original file name on
+Instagram's server), `{profile}` and `{target}`. Format specifications can follow a colon:
+
+* dates: `{date_utc:%Y-%m-%d}` gives `2026-10-08`; codes are `%Y` year, `%m` month, `%d` day, `%H` hour,
+  `%M` minute, `%S` second, `%A` weekday name, `%B` month name (default: `%Y-%m-%d_%H-%M-%S`);
+* numbers: `{likes:06d}` gives zero-padded `000150`;
+* text: `{caption:.40}` cuts the caption after 40 characters. `{pcaption}` is a shortened single-line
+  version of the caption, suitable for file names.
+
+A `/` or `\` in the folder template creates subfolders. Characters that are invalid in file names are
+replaced automatically. Use `--sanitize-paths` to also create names that are valid on Linux/macOS.
+
+Examples:
+
+```
+InstaloaderSharp.exe --dirname-pattern "D:\Instagram\{profile}" profilename
+InstaloaderSharp.exe --filename-pattern "{date_utc:%Y-%m-%d}_{shortcode}" profilename
+InstaloaderSharp.exe --dirname-pattern "{target}\{date_utc:%Y}" --filename-pattern "{date_utc:%m-%d_%H%M}_{pcaption}" profilename
+```
+
+The same template syntax is used by `--post-metadata-txt` (for the content of the caption files), e.g.
+`--post-metadata-txt "{caption}" --post-metadata-txt "Posted on {date_local} - {likes} likes"`.
+
+## Interrupting and resuming
+
+When a download of many posts is interrupted (by Ctrl+C, or because Instagram aborts it), the position is
+saved in a file named `iterator_XXXXXXXX.json.xz` in the target's folder:
+
+```
+Saved resume information to instagram\iterator_s8YiB9OL.json.xz.
+```
+
+Running the same command again continues from that position (`Resuming from ...`), and the file is
+deleted when the download completes. Resume files expire after 29 days. Use `--no-resume` to neither use
+nor create them, and `--resume-prefix PREFIX` to name them differently.
+
+While a request is being retried after a network error (`[retrying; skip with ^C]`), Ctrl+C skips just
+that item instead of stopping everything.
+
+## Other options
+
+| Option | Effect |
+| --- | --- |
+| `--quiet`, `-q` | Print only errors, never ask questions (fails if a password would be needed). Suitable for scheduled tasks. |
+| `--max-connection-attempts N` | Number of attempts for failing requests (default 3; 0 retries forever). |
+| `--request-timeout N` | Seconds to wait for a response (default 300). |
+| `--abort-on CODES` | Stop immediately if Instagram answers with one of these HTTP status codes, e.g. `--abort-on 302,400,429`. |
+| `--no-iphone` | Do not use Instagram's mobile API for higher-quality media when logged in. |
+| `--user-agent TEXT` | Browser identification sent to Instagram. |
+| `--version` | Print the version of InstaloaderSharp (1.0.0). |
+| `--help`, `-h` | Print all options. |
+
+Options can be abbreviated as long as they are unique (`--fast` for `--fast-update`), and given as
+`--option=value`. Short options can be combined (`-sF` is `-s -F`).
+
+## Reading options from a file
+
+Arguments can be put into a text file, one argument per line, and passed with `+` before the file name:
+
+```
+InstaloaderSharp.exe +args.txt
+```
+
+with `args.txt` containing for example:
+
+```
+--login=myname
+--fast-update
+--stories
+profile1
+profile2
+```
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success. |
+| 1 | Finished, but errors occurred (they are repeated at the end of the output). |
+| 2 | Invalid command line, or nothing to do. |
+| 3 | Login failed. |
+| 4 | Download aborted (e.g. by `--abort-on`, or because Instagram requires verification). |
+| 5 | Interrupted by the user (Ctrl+C). |
+| 99 | Unexpected error. |
+
+## Tips and troubleshooting
+
+* **"Too many queries" / "Please wait a few minutes" / HTTP 429 or 401:** Instagram limits how many
+  requests can be made. The program waits automatically between requests; when a limit is hit it waits
+  longer and retries. Do not run several instances at the same time, and avoid using Instagram apps with
+  the same account while downloading.
+* **"Login required" / "Redirected to login page":** Instagram refused the request anonymously. Log in
+  (see [Logging in](#logging-in)). If you get this while logged in, your session has expired; log in again
+  or re-import your browser cookies.
+* **"Checkpoint required":** open the given link in a browser, confirm the login there, then try again,
+  or use `--load-cookies`.
+* **"Profile ... does not exist":** check the spelling; the profile may have been renamed, deleted, or it
+  blocked you. When logged in, the program tries again anonymously in that case.
+* **Errors during a run** are printed when they occur and repeated at the end; the program continues with
+  the next item.
+
+## Interoperability with Instaloader
+
+InstaloaderSharp and Instaloader can be used on the same download folders, in either order:
+
+| Data | Format |
+| --- | --- |
+| Session files (`%LOCALAPPDATA%\Instaloader\session-USER`) | Python pickle (read: all protocols; write: protocol 4) |
+| Metadata (`*.json.xz`, `*.json`) | Should be the same JSON as Python's `json` module (key order, escaping, float formatting, CRLF); xz/LZMA2 |
+| Resume files (`iterator_MAGIC.json.xz`) | Should have the same content and the same BLAKE2b "magic" file name, so an interrupted download can be resumed by either program |
+| `--latest-stamps` file | Should use the same INI dialect as Python's `configparser` |
+| Media, captions, `id` files | Should be byte-identical, with identical file names and modification times |
+| Comments (`*_comments.json`), geotags (`*_location.txt`) | Should use the same format and merge logic as Python |
+
+The command line should behave the same too (options, abbreviations, help output, error messages and exit codes).
+
+JSON metadata and resume files record the Instaloader version they were written with. InstaloaderSharp
+1.0.0 writes `"version": "4.15.4"` there (the Instaloader version it targets), not its own
+version number, so its files should be identical to those of Instaloader 4.15.4.
+
+## Library use
+
+The program can also be referenced as a library:
+
+```csharp
+var L = new InstaloaderSharp.Instaloader();
+var profile = InstaloaderSharp.Profile.FromUsername(L.Context, "instagram");
+foreach (var post in profile.GetPosts())
+    L.DownloadPost(post, profile.Username);
+```
+
+Python names map to PascalCase (`download_post` → `DownloadPost`, `date_utc` → `DateUtc`). Python's
+`KeyboardInterrupt` is `KeyboardInterruptException` (^C is turned into it at the next interruption point,
+so resume files get saved), and the `with` context managers are methods taking a delegate
+(`Context.ErrorCatcher(...)`, `NodeIteration.ResumableIteration(...)`).
+
+## Differences from Instaloader
+
+* `--load-cookies` is built in (Instaloader needs the optional `browser_cookie3` package). Chromium-based
+  browsers and Firefox/LibreWolf are supported on Windows; cookies using Chrome's newer app-bound
+  encryption (`v20`) cannot be decrypted (browser_cookie3 has the same limitation), and Chrome may need to be
+  closed so that its cookie database can be read. Safari is macOS-only.
+* Retries of failed `doc_id` (POST) GraphQL queries are sent as POST again; Instaloader retries them as GET.
+* Syntax errors in filters are reported as an error message (exit code 2) instead of a Python traceback.
+* Sets of profiles are processed in the order they were given rather than Instaloader's set order.
+* Geotags (`--geotags`) work again, also without logging in. Instagram now names the location ID `pk` and
+  no longer provides `slug` and `has_public_page`, which Instaloader 4.15.4 fails on (`KeyError: 'id'`); its
+  fallback lookup (`explore/locations/`) no longer returns data either. In saved metadata, a post's location
+  therefore has no `slug`.
+* `--igtv` only reports that Instagram has retired IGTV (former IGTV videos are downloaded as posts and
+  reels); Instaloader 4.15.4 fails with `KeyError: 'edges'`. Connections that Instagram returns without
+  any items are treated as empty instead of failing.
+* `:feed` works again. Instaloader 4.15.4 uses a query that Instagram no longer answers with the feed (it
+  fails with `TypeError: 'NoneType' object is not subscriptable`); InstaloaderSharp loads the feed the way
+  Instagram's website does: the first page from the home page, further pages with the query the home page
+  declares. Instagram's suggested posts from accounts you do not follow are skipped.
+* `:stories` (the stories of all accounts you follow) works again. The list of accounts with stories comes
+  from the app's story tray (`api/v1/feed/reels_tray/`) instead of a query that Instagram no longer answers.
+* Followers and followees (`@profile`, `Profile.GetFollowers()`/`GetFollowees()`) are retrieved with the
+  friendships API of Instagram's web app; Instaloader 4.15.4's query returns no profiles anymore.
+* Requests to Instagram's app API (`i.instagram.com`) obtain the app's access token first, if the session
+  does not have one yet (e.g. a session imported from a browser); without it, Instagram refuses e.g. the
+  story tray and profile information.
+* `Profile.GetFollowedHashtags()` returns an empty list, since Instagram removed following hashtags in
+  December 2024; Instaloader 4.15.4 fails with a `TypeError`.
+
+## Disclaimer
+
+InstaloaderSharp is in no way affiliated with, authorized, maintained or endorsed by Instagram or any of its affiliates or subsidiaries. This is an independent and unofficial project. Use at your own risk.

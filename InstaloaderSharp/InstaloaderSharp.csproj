@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{40A52942-B1C2-4B49-9DC6-4F8E76AC9621}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>InstaloaderSharp</RootNamespace>
+    <AssemblyName>InstaloaderSharp</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <LangVersion>6</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Security" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Cli\ArgParser.cs" />
+    <Compile Include="Cli\BrowserCookies.cs" />
+    <Compile Include="Cli\SqliteReader.cs" />
+    <Compile Include="Compression\Lzma.cs" />
+    <Compile Include="Compression\Xz.cs" />
+    <Compile Include="Exceptions.cs" />
+    <Compile Include="Http\CookieJar.cs" />
+    <Compile Include="Http\HttpUtil.cs" />
+    <Compile Include="Http\Session.cs" />
+    <Compile Include="Http\WinHttp.cs" />
+    <Compile Include="Instaloader.cs" />
+    <Compile Include="InstaloaderContext.cs" />
+    <Compile Include="Json\JToken.cs" />
+    <Compile Include="Json\PyJson.cs" />
+    <Compile Include="LatestStamps.cs" />
+    <Compile Include="NodeIterator.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Python\Pickle.cs" />
+    <Compile Include="Python\PyBuiltins.cs" />
+    <Compile Include="Python\PyDateTime.cs" />
+    <Compile Include="Python\PyErrors.cs" />
+    <Compile Include="Python\PyExpression.cs" />
+    <Compile Include="Python\PyFloat.cs" />
+    <Compile Include="Python\PyFormat.cs" />
+    <Compile Include="Python\PyOs.cs" />
+    <Compile Include="Python\PyRuntime.cs" />
+    <Compile Include="Python\PyStr.cs" />
+    <Compile Include="Structures\Hashtag.cs" />
+    <Compile Include="Structures\Post.cs" />
+    <Compile Include="Structures\PostTypes.cs" />
+    <Compile Include="Structures\Profile.cs" />
+    <Compile Include="Structures\Story.cs" />
+    <Compile Include="Util\Hashing.cs" />
+    <Compile Include="Util\Interrupt.cs" />
+  </ItemGroup>
+  <PropertyGroup>
+    <ApplicationIcon>InstaloaderSharp.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <Content Include="InstaloaderSharp.ico" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
