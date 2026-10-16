@@ -9,7 +9,7 @@ profiles, single posts, hashtags, locations, your feed, your saved posts, storie
 No previous knowledge of Instaloader is needed to use it; this document covers everything from a first
 download to the advanced options.
 
-If you prefer a graphical user interface, have a look at [InstaloaderSharp GUI](https://github.com/InstaloaderSharp/InstaloaderSharpGUI)
+If you prefer a graphical user interface, have a look at [InstaloaderSharp GUI](https://github.com/InstaloaderSharp/InstaloaderSharpGUI).
 
 * [Requirements and building](#requirements-and-building)
 * [Quick start](#quick-start)
