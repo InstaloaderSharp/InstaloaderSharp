@@ -99,7 +99,8 @@ For larger changes, please open an issue first to discuss the approach, so that 
    ```
 
    You need the .NET Framework 4.8.1 developer pack (reference assemblies). The build must finish without
-   errors and warnings.
+   errors and warnings. The unit test project needs Visual Studio's MSTest framework (see
+   [Unit tests](#unit-tests)).
 
 ### Repository layout
 
@@ -110,6 +111,7 @@ For larger changes, please open an issue first to discuss the approach, so that 
 | `InstaloaderSharp/Program.cs`, `Cli/` | Command line (argparse-compatible parser), `--load-cookies` (browser cookie databases) |
 | `InstaloaderSharp/Http/` | HTTP/2 client on top of WinHTTP, cookie jar, `requests`-like session |
 | `InstaloaderSharp/Json/`, `Compression/`, `Python/` | Python-compatible JSON, xz/LZMA, pickle, `str.format`, `strftime` and the expression evaluator for `--post-filter` |
+| `InstaloaderSharp.Tests/` | Unit tests, and in `TestData/` reference files created by Instaloader |
 
 ## Project guidelines
 
@@ -137,12 +139,68 @@ For larger changes, please open an issue first to discuss the approach, so that 
 * **Do not commit downloads or personal data.** Never commit session files, cookies, downloaded media,
   metadata of private accounts or credentials, also not in tests or examples.
 
+## Testing your changes
+
+### Unit tests
+
+The solution contains a unit test project, `InstaloaderSharp.Tests` (MSTest). The tests run offline. They
+make no requests to Instagram and need no account. They cover the parts that must stay compatible with
+Instaloader, comparing against reference files that Instaloader created:
+
+* JSON output (`ensure_ascii`, float formatting, key order), pickle session files, xz/LZMA and the
+  `.json`/`.json.xz` metadata files.
+* Resume files and their "magic" hash, and `latest-stamps.ini`.
+* `str.format`, `strftime`, `--post-filter` expressions, file name patterns and path handling.
+* The command line parser, the cookie jar, Firefox cookie databases (SQLite with write-ahead log), AES-GCM
+  for Chromium cookies, and the HTTP client, which is tested against a local server on `127.0.0.1`.
+
+The test project needs Visual Studio's MSTest framework, which is included with Visual Studio 2015 or later.
+To run the tests, build the solution in Visual Studio, open **Test Explorer** from the **Test** menu and choose
+**Run All**. On the command line, run:
+
+```
+"C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe" InstaloaderSharp.sln /p:Configuration=Debug
+"C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe" InstaloaderSharp.Tests\bin\Debug\InstaloaderSharp.Tests.dll
+```
+
+Use the `vstest.console.exe` of your Visual Studio version (for newer versions, it is under
+`Common7\IDE\Extensions\TestPlatform`).
+
+All tests must pass before you submit a pull request. When you fix a bug or add a feature, add a test for it
+where possible, preferably with expected values verified against Instaloader. The reference files are
+in `InstaloaderSharp.Tests\TestData`. They are created by `generate.py`, which also prints the values that
+the tests hard-code. If you need new reference files, extend that script and run it from the repository root
+with [Instaloader](https://pypi.org/project/instaloader/) installed
+(`pip install instaloader`):
+
+```
+python InstaloaderSharp.Tests\TestData\generate.py
+```
+
+Add new test files to `InstaloaderSharp.Tests/InstaloaderSharp.Tests.csproj` like source files. The
+reference files in `TestData` are included automatically.
+
+### Testing with Instagram
+
+Unit tests cannot detect changes on Instagram's side, so please also test your change against Instagram and
+describe how in the pull request:
+
+* Build both Debug and Release without warnings.
+* Run the commands affected by your change. For example, download a public profile or a single post
+  (`InstaloaderSharp.exe -- -SHORTCODE`). For features that need it, use a logged-in session.
+* If your change touches file formats, check that Instaloader (`pip install instaloader`) can still
+  read the files InstaloaderSharp writes, and the other way round.
+* Keep live tests small (`--count`, single posts, `--no-posts`, `--no-videos`), and do not run several
+  instances in parallel. Instagram quickly rate-limits or restricts accounts that make many requests. Use a
+  secondary account for logged-in tests.
+
 ## Submitting a pull request
 
 1. Keep the pull request focused on one change; split unrelated changes into separate pull requests.
 2. Write clear commit messages: a short summary line in the imperative ("Fix KeyError in story download"),
    followed by a blank line and an explanation of what and why, if needed.
-3. Make sure your branch is up to date with `main` and builds without errors and warnings.
+3. Make sure your branch is up to date with `main`, builds without errors and warnings, and passes all
+   unit tests.
 4. Push the branch to your fork and open a pull request against `main` of
    [InstaloaderSharp/InstaloaderSharp](https://github.com/InstaloaderSharp/InstaloaderSharp/pulls).
 5. In the description, explain what the change does, link the related issue (e.g. "Fixes #12"), and describe
