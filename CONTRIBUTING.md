@@ -35,7 +35,7 @@ Please include:
 * What you expected to happen and what happened instead.
 * Whether you were logged in, and how (`--login` or `--load-cookies` with which browser).
 * Whether the problem is reproducible, and if it happens with every profile/post or only with specific ones.
-* If you can, whether [Python Instaloader](https://github.com/instaloader/instaloader) shows the same problem.
+* If you can, whether [Instaloader](https://github.com/instaloader/instaloader) shows the same problem.
   That helps tell bugs in InstaloaderSharp apart from changes on Instagram's side. Both are worth reporting:
   InstaloaderSharp aims to work correctly even where Instaloader does not.
 
@@ -64,7 +64,7 @@ so that it can be fixed before it is disclosed.
 
 Feature requests are welcome as [issues](https://github.com/InstaloaderSharp/InstaloaderSharp/issues/new).
 Describe what you would like to do and why (the use case), not only the proposed solution, and mention if
-Python Instaloader already has the feature. Please keep in mind that InstaloaderSharp only downloads data;
+Instaloader already has the feature. Please keep in mind that InstaloaderSharp only downloads data;
 features that act on Instagram (liking, following, posting, ...) are out of scope.
 
 ## Asking a question
@@ -110,7 +110,6 @@ For larger changes, please open an issue first to discuss the approach, so that 
 | `InstaloaderSharp/Program.cs`, `Cli/` | Command line (argparse-compatible parser), `--load-cookies` (browser cookie databases) |
 | `InstaloaderSharp/Http/` | HTTP/2 client on top of WinHTTP, cookie jar, `requests`-like session |
 | `InstaloaderSharp/Json/`, `Compression/`, `Python/` | Python-compatible JSON, xz/LZMA, pickle, `str.format`, `strftime` and the expression evaluator for `--post-filter` |
-| `Old/` | The Python Instaloader source this project was ported from, for reference |
 
 ## Project guidelines
 
