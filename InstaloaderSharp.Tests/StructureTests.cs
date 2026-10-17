@@ -27,7 +27,7 @@ namespace InstaloaderSharp.Tests
         [TestMethod]
         public void PostPropertiesFromNode()
         {
-            // Expected values from Python Instaloader for the same post (see generate.py)
+            // Expected values from Instaloader for the post in post.json
             Post post = LoadPost();
             Assert.AreEqual("CqXy_12-Ab", post.Shortcode);
             Assert.AreEqual(3082211244414448123L, post.Mediaid);
