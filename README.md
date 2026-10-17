@@ -46,6 +46,10 @@ The result is a single file, `InstaloaderSharp\bin\Release\InstaloaderSharp.exe`
 dependencies. Copy it wherever you like. You may rename it, for example to `instaloader.exe`; the examples
 below use `InstaloaderSharp.exe`.
 
+The solution also contains the unit tests (`InstaloaderSharp.Tests`), which need Visual Studio's MSTest
+framework; see [CONTRIBUTING.md](CONTRIBUTING.md#unit-tests). Without Visual Studio, build only the program
+with `InstaloaderSharp\InstaloaderSharp.csproj` instead of `InstaloaderSharp.sln` in the command above.
+
 ## Quick start
 
 Open a command prompt in the folder where the downloads should be saved and run:
