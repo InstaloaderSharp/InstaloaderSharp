@@ -124,7 +124,7 @@ For larger changes, please open an issue first to discuss the approach, so that 
   correctly rather than reproduce Instaloader's bugs or failures caused by Instagram changes. Fix them, and
   document every deliberate difference from Instaloader in the "Differences from Instaloader" section of
   the [README](README.md).
-* **Keep files compatible with Python Instaloader.** Users may use both programs on the same downloads.
+* **Keep files compatible with Instaloader.** Users may use both programs on the same downloads.
   Session files (pickle), metadata and resume files (`.json`/`.json.xz`), `latest-stamps.ini`, file names and
   modification times should stay readable and consistent with Instaloader.
 * **Keep the command line compatible.** Do not rename or remove existing options or change their meaning.
