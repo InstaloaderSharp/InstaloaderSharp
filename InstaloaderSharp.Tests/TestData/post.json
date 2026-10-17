@@ -1,0 +1,59 @@
+{
+    "instaloader": {
+        "node_type": "Post",
+        "version": "4.15.4"
+    },
+    "node": {
+        "__typename": "GraphSidecar",
+        "accessibility_caption": "A cat",
+        "big": 12345678901234567890,
+        "caption": "Hello World! #Cat #dogs_2 \u00e9t\u00e9 @some.user and @other__x/slash\nsecond line \ud83d\ude00",
+        "date": 1609502400,
+        "display_url": "https://scontent.cdninstagram.com/v/t51/abc_n.jpg?stp=1&se=7&x=2",
+        "edge_media_preview_like": {
+            "count": 150
+        },
+        "edge_media_to_comment": {
+            "count": 7
+        },
+        "edge_media_to_tagged_user": {
+            "edges": [
+                {
+                    "node": {
+                        "user": {
+                            "username": "Tagged.One"
+                        }
+                    }
+                }
+            ]
+        },
+        "edge_sidecar_to_children": {
+            "edges": [
+                {
+                    "node": {
+                        "display_url": "https://example.com/1.jpg",
+                        "is_video": false
+                    }
+                },
+                {
+                    "node": {
+                        "display_url": "https://example.com/2.jpg",
+                        "is_video": true,
+                        "video_url": "https://example.com/2.mp4"
+                    }
+                }
+            ]
+        },
+        "id": "3082211244414448123",
+        "is_video": false,
+        "neg": -0.0,
+        "owner": {
+            "id": "25025320",
+            "username": "SomeUser"
+        },
+        "ratio": 0.1,
+        "shortcode": "CqXy_12-Ab",
+        "title": null,
+        "video_duration": 12.5
+    }
+}
