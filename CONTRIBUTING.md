@@ -167,15 +167,10 @@ Use the `vstest.console.exe` of your Visual Studio version (for newer versions, 
 `Common7\IDE\Extensions\TestPlatform`).
 
 All tests must pass before you submit a pull request. When you fix a bug or add a feature, add a test for it
-where possible, preferably with expected values verified against Instaloader. The reference files are
-in `InstaloaderSharp.Tests\TestData`. They are created by `generate.py`, which also prints the values that
-the tests hard-code. If you need new reference files, extend that script and run it from the repository root
-with [Instaloader](https://pypi.org/project/instaloader/) installed
-(`pip install instaloader`):
-
-```
-python InstaloaderSharp.Tests\TestData\generate.py
-```
+where possible, preferably with expected values verified against Instaloader. The reference files in
+`InstaloaderSharp.Tests\TestData` were created with Instaloader. If a test needs a new reference
+file, create it with Instaloader, add it to `TestData`, and describe in the test how it was created. The
+repository contains only C# code, so do not add scripts in other languages.
 
 Add new test files to `InstaloaderSharp.Tests/InstaloaderSharp.Tests.csproj` like source files. The
 reference files in `TestData` are included automatically.
