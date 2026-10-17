@@ -168,7 +168,7 @@ Use the `vstest.console.exe` of your Visual Studio version (for newer versions, 
 
 All tests must pass before you submit a pull request. When you fix a bug or add a feature, add a test for it
 where possible, preferably with expected values verified against Instaloader. The reference files in
-`InstaloaderSharp.Tests\TestData` were created with Instaloader 4.15.4. If a test needs a new reference
+`InstaloaderSharp.Tests\TestData` were created with Instaloader. If a test needs a new reference
 file, create it with Instaloader, add it to `TestData`, and describe in the test how it was created. The
 repository contains only C# code, so do not add scripts in other languages.
 

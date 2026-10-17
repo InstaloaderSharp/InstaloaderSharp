@@ -331,10 +331,11 @@ namespace InstaloaderSharp.Python
                     case 'h': sb.Append(MonthNames[d.Month - 1].Substring(0, 3)); break;
                     case 'B': sb.Append(MonthNames[d.Month - 1]); break;
                     case 'c':
+                        // As Python 3.14 formats it on Windows
                         if (noPad)
-                            sb.Append(Strftime("%A, %B %#d, %Y %H:%M:%S"));
+                            sb.Append(Strftime("%A, %B %d, %Y %H:%M:%S"));
                         else
-                            sb.Append(Strftime("%m/%d/%y %H:%M:%S"));
+                            sb.Append(Strftime("%a %b %e %H:%M:%S %Y"));
                         break;
                     case 'C': sb.Append(Num(d.Year / 100, 2, noPad)); break;
                     case 'd': sb.Append(Num(d.Day, 2, noPad)); break;
@@ -380,7 +381,7 @@ namespace InstaloaderSharp.Python
                     case 'w': sb.Append(sundayWeekday); break;
                     case 'W': sb.Append(Num((d.DayOfYear - 1 + 7 - weekday) / 7, 2, noPad)); break;
                     case 'x':
-                        sb.Append(noPad ? Strftime("%A, %B %#d, %Y") : Strftime("%m/%d/%y"));
+                        sb.Append(noPad ? Strftime("%A, %B %d, %Y") : Strftime("%m/%d/%y"));
                         break;
                     case 'X': sb.Append(Strftime("%H:%M:%S")); break;
                     case 'y': sb.Append(Num(d.Year % 100, 2, noPad)); break;

@@ -407,7 +407,7 @@ The command line should behave the same too (options, abbreviations, help output
 
 JSON metadata and resume files record the Instaloader version they were written with. InstaloaderSharp
 1.0.0 writes `"version": "4.15.4"` there (the Instaloader version it targets), not its own
-version number, so its files should be identical to those of Instaloader 4.15.4.
+version number, so its files should be identical to those of Instaloader.
 
 ## Library use
 
@@ -435,25 +435,25 @@ so resume files get saved), and the `with` context managers are methods taking a
 * Syntax errors in filters are reported as an error message (exit code 2) instead of a Python traceback.
 * Sets of profiles are processed in the order they were given rather than Instaloader's set order.
 * Geotags (`--geotags`) work again, also without logging in. Instagram now names the location ID `pk` and
-  no longer provides `slug` and `has_public_page`, which Instaloader 4.15.4 fails on (`KeyError: 'id'`); its
+  no longer provides `slug` and `has_public_page`, which Instaloader fails on (`KeyError: 'id'`); its
   fallback lookup (`explore/locations/`) no longer returns data either. In saved metadata, a post's location
   therefore has no `slug`.
 * `--igtv` only reports that Instagram has retired IGTV (former IGTV videos are downloaded as posts and
-  reels); Instaloader 4.15.4 fails with `KeyError: 'edges'`. Connections that Instagram returns without
+  reels); Instaloader fails with `KeyError: 'edges'`. Connections that Instagram returns without
   any items are treated as empty instead of failing.
-* `:feed` works again. Instaloader 4.15.4 uses a query that Instagram no longer answers with the feed (it
+* `:feed` works again. Instaloader uses a query that Instagram no longer answers with the feed (it
   fails with `TypeError: 'NoneType' object is not subscriptable`); InstaloaderSharp loads the feed the way
   Instagram's website does: the first page from the home page, further pages with the query the home page
   declares. Instagram's suggested posts from accounts you do not follow are skipped.
 * `:stories` (the stories of all accounts you follow) works again. The list of accounts with stories comes
   from the app's story tray (`api/v1/feed/reels_tray/`) instead of a query that Instagram no longer answers.
 * Followers and followees (`@profile`, `Profile.GetFollowers()`/`GetFollowees()`) are retrieved with the
-  friendships API of Instagram's web app; Instaloader 4.15.4's query returns no profiles anymore.
+  friendships API of Instagram's web app; Instaloader's query returns no profiles anymore.
 * Requests to Instagram's app API (`i.instagram.com`) obtain the app's access token first, if the session
   does not have one yet (e.g. a session imported from a browser); without it, Instagram refuses e.g. the
   story tray and profile information.
 * `Profile.GetFollowedHashtags()` returns an empty list, since Instagram removed following hashtags in
-  December 2024; Instaloader 4.15.4 fails with a `TypeError`.
+  December 2024; Instaloader fails with a `TypeError`.
 
 ## Disclaimer
 

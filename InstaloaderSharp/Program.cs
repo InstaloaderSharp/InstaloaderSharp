@@ -484,7 +484,7 @@ namespace InstaloaderSharp
             return exitCode;
         }
 
-        private static ArgParser CreateParser()
+        internal static ArgParser CreateParser()
         {
             var parser = new ArgParser
             {

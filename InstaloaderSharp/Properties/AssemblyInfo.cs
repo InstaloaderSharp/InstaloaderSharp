@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("InstaloaderSharp")]
-[assembly: AssemblyDescription("C# port of Instaloader 4.15.4: download pictures (or videos) along with their captions and other metadata from Instagram.")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("InstaloaderSharp")]
@@ -18,6 +18,9 @@ using System.Runtime.InteropServices;
 // to COM components.  If you need to access a type in this assembly from 
 // COM, set the ComVisible attribute to true on that type.
 [assembly: ComVisible(false)]
+
+// The unit tests also test internal types
+[assembly: InternalsVisibleTo("InstaloaderSharp.Tests")]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("40a52942-b1c2-4b49-9dc6-4f8e76ac9621")]
