@@ -4,7 +4,7 @@ A C# / .NET Framework version of [Instaloader](https://github.com/instaloader/in
 It downloads pictures and videos along with their captions and other metadata from Instagram: whole
 profiles, single posts, hashtags, locations, your feed, your saved posts, stories and highlights.
 
-**Version 1.0.0**, targets compatibility with Instaloader 4.15.4 but might be compatible with later versions.
+**Version 1.0.1**, targets compatibility with Instaloader 4.15.4 but might be compatible with later versions.
 
 No previous knowledge of Instaloader is needed to use it; this document covers everything from a first
 download to the advanced options.
@@ -338,7 +338,7 @@ that item instead of stopping everything.
 | `--abort-on CODES` | Stop immediately if Instagram answers with one of these HTTP status codes, e.g. `--abort-on 302,400,429`. |
 | `--no-iphone` | Do not use Instagram's mobile API for higher-quality media when logged in. |
 | `--user-agent TEXT` | Browser identification sent to Instagram. |
-| `--version` | Print the version of InstaloaderSharp (1.0.0). |
+| `--version` | Print the version of InstaloaderSharp (1.0.1). |
 | `--help`, `-h` | Print all options. |
 
 Options can be abbreviated as long as they are unique (`--fast` for `--fast-update`), and given as
@@ -406,7 +406,7 @@ InstaloaderSharp and Instaloader can be used on the same download folders, in ei
 The command line should behave the same too (options, abbreviations, help output, error messages and exit codes).
 
 JSON metadata and resume files record the Instaloader version they were written with. InstaloaderSharp
-1.0.0 writes `"version": "4.15.4"` there (the Instaloader version it targets), not its own
+1.0.1 writes `"version": "4.15.4"` there (the Instaloader version it targets), not its own
 version number, so its files should be identical to those of Instaloader.
 
 ## Library use
