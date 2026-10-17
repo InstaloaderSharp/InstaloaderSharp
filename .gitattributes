@@ -1,0 +1,2 @@
+# Reference files of the unit tests must keep their exact bytes (line endings included)
+InstaloaderSharp.Tests/TestData/** binary

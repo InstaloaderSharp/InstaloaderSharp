@@ -47,7 +47,7 @@ dependencies. Copy it wherever you like. You may rename it, for example to `inst
 below use `InstaloaderSharp.exe`.
 
 The solution also contains the unit tests (`InstaloaderSharp.Tests`), which need Visual Studio's MSTest
-framework; see [CONTRIBUTION.md](CONTRIBUTION.md#unit-tests). Without Visual Studio, build only the program
+framework; see [CONTRIBUTING.md](CONTRIBUTING.md#unit-tests). Without Visual Studio, build only the program
 with `InstaloaderSharp\InstaloaderSharp.csproj` instead of `InstaloaderSharp.sln` in the command above.
 
 ## Quick start

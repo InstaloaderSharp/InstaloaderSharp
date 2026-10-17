@@ -11,7 +11,10 @@ namespace InstaloaderSharp.Tests
     [TestClass]
     public class NodeIteratorTests
     {
-        /// <summary>The same iterator as in generate.py; the first page is given, so no request is made.</summary>
+        /// <summary>
+        /// The iterator that Instaloader saved to resume.json.xz after two items; the first page is given, so no
+        /// request is made.
+        /// </summary>
         private static NodeIterator<JObject> CreateIterator(InstaloaderContext context, bool hasNextPage = true)
         {
             var edges = new JArray();
