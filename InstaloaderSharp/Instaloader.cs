@@ -94,6 +94,26 @@ namespace InstaloaderSharp
             return SanitizePath(s, _forceWindowsPath);
         }
 
+        /// <summary>
+        /// Also makes formatted values such as "{date_utc:%c}" (which contains colons) safe for file names. Instaloader
+        /// only sanitizes string values, so on Windows such patterns fail with "Invalid argument". Path separators are
+        /// kept, so that e.g. "{date_utc:%Y/%m}" still creates subdirectories.
+        /// </summary>
+        public override string FormatField(object value, string formatSpec)
+        {
+            string ret = base.FormatField(value, formatSpec);
+            if (value is string || !(_forceWindowsPath || PyOs.IsWindows))
+                return ret;
+            return ReplaceIllegalWindowsChars(ret);
+        }
+
+        private static string ReplaceIllegalWindowsChars(string ret)
+        {
+            ret = ret.Replace(':', (char)0xFF1A).Replace('<', (char)0xFE64).Replace('>', (char)0xFE65).Replace('"', (char)0xFF02);
+            ret = ret.Replace('|', (char)0xFF5C).Replace('?', (char)0xFE16).Replace('*', (char)0xFF0A);
+            return ret.Replace('\n', ' ').Replace('\r', ' ');
+        }
+
         /// <summary>Replaces '/' with similar looking Division Slash and some other illegal filename characters on Windows.</summary>
         public static string SanitizePath(string ret, bool forceWindowsPath = false)
         {
@@ -104,9 +124,7 @@ namespace InstaloaderSharp
 
             if (forceWindowsPath || PyOs.IsWindows)
             {
-                ret = ret.Replace(':', (char)0xFF1A).Replace('<', (char)0xFE64).Replace('>', (char)0xFE65).Replace('"', (char)0xFF02);
-                ret = ret.Replace('\\', (char)0xFE68).Replace('|', (char)0xFF5C).Replace('?', (char)0xFE16).Replace('*', (char)0xFF0A);
-                ret = ret.Replace('\n', ' ').Replace('\r', ' ');
+                ret = ReplaceIllegalWindowsChars(ret.Replace('\\', (char)0xFE68));
                 string root, ext;
                 PyOs.SplitExt(ret, out root, out ext);
                 if (Reserved.Contains(PyStr.Upper(root)))

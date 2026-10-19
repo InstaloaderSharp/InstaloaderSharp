@@ -454,6 +454,11 @@ so resume files get saved), and the `with` context managers are methods taking a
   story tray and profile information.
 * `Profile.GetFollowedHashtags()` returns an empty list, since Instagram removed following hashtags in
   December 2024; Instaloader fails with a `TypeError`.
+* Formatted values in `--dirname-pattern` and `--filename-pattern`, such as `{date_utc:%c}` or
+  `{date_utc:%H:%M}`, get the same replacements for characters that are invalid in Windows file names as
+  other values (e.g. `:` becomes `：`). Instaloader leaves them unchanged and fails with
+  `OSError: [Errno 22] Invalid argument`. Path separators from formats are kept, so `{date_utc:%Y/%m}`
+  still creates subdirectories.
 
 ## Disclaimer
 
