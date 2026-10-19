@@ -122,7 +122,7 @@ For larger changes, please open an issue first to discuss the approach, so that 
   Framework and Windows APIs only.
 * **Add new source files to `InstaloaderSharp/InstaloaderSharp.csproj`.** The project lists its files explicitly.
   Visual Studio does this automatically; if you use another editor, add a `<Compile Include="..." />` entry.
-* **Correct behavior first.** InstaloaderSharp started as a C# / .Net Framework version of Instaloader, but it should work
+* **Correct behavior first.** InstaloaderSharp started as a C# / .NET Framework version of Instaloader, but it should work
   correctly rather than reproduce Instaloader's bugs or failures caused by Instagram changes. Fix them, and
   document every deliberate difference from Instaloader in the "Differences from Instaloader" section of
   the [README](README.md).
