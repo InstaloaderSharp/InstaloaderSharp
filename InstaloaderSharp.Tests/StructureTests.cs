@@ -97,6 +97,18 @@ namespace InstaloaderSharp.Tests
         }
 
         [TestMethod]
+        public void FormattedValuesInPathsAreSanitized()
+        {
+            // Instaloader leaves the colons of "%c" in file names, which fails on Windows ("Invalid argument").
+            Post post = LoadPost();
+            Func<string, string> path = pattern => new PostPathFormatter(post, true).Format(pattern);
+            Assert.AreEqual("Fri Jan  1 12" + FullwidthColon + "00" + FullwidthColon + "00 2021", path("{date_utc:%c}"));
+            Assert.AreEqual("Friday, January 01, 2021", path("{date_utc:%#x}"));
+            Assert.AreEqual("2021/01", path("{date_utc:%Y/%m}"), "path separators from formats are kept");
+            Assert.AreEqual("Fri Jan  1 12:00:00 2021", new ArbitraryItemFormatter(post).Format("{date_utc:%c}"));
+        }
+
+        [TestMethod]
         public void SanitizePath()
         {
             Assert.AreEqual(FullwidthColon + "feed" + DivisionSlash + "x", PostPathFormatter.SanitizePath(":feed/x", true));
