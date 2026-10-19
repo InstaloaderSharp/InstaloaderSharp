@@ -78,9 +78,11 @@
   </ItemGroup>
   <PropertyGroup>
     <ApplicationIcon>InstaloaderSharp.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="app.manifest" />
     <Content Include="InstaloaderSharp.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
