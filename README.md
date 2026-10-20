@@ -465,7 +465,9 @@ so resume files get saved), and the `with` context managers are methods taking a
   way Instagram's website sends them: with the session's request token (`fb_dtsg`), the query's name and the
   browser's `Sec-Fetch-*` headers. Since October 2026, Instagram redirects queries without them to its home
   page for some accounts, and Instaloader downloads no posts (it shows *"HTTP redirect from
-  https://www.instagram.com/graphql/query to https://www.instagram.com/"*).
+  https://www.instagram.com/graphql/query to https://www.instagram.com/"*). Reels (`--reels`) are loaded with
+  the query of the website's reels tab, since Instagram answers Instaloader's older reels query without reels
+  when it is sent this way.
 
 ## Disclaimer
 

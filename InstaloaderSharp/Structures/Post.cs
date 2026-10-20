@@ -128,20 +128,11 @@ namespace InstaloaderSharp
         {
             try
             {
-                JObject resp = context.DocIdGraphqlQuery(
-                    "27234427476213202",
-                    new JObject
-                    {
-                        {
-                            "data", new JObject
-                            {
-                                { "include_feed_video", true },
-                                { "page_size", 12 },
-                                { "target_user_id", Python.PyStr.Str(userId) }
-                            }
-                        }
-                    });
-                JToken edges = resp.Get("data").Or(new JObject()).Get("xdt_api__v1__clips__user__connection_v2").Or(new JObject());
+                // The web app's reels tab query; sent with the web app's request fields, the older query of
+                // Instaloader 4.15.4, 27234427476213202, is answered without reels.
+                JObject resp = context.DocIdGraphqlQuery(InstaloaderSharp.Profile.ReelsDocId,
+                                                         InstaloaderSharp.Profile.ReelsQueryVariables(Python.PyStr.Str(userId)));
+                JToken edges = (JToken)InstaloaderSharp.Profile.ReelsConnection(resp) ?? new JObject();
                 foreach (JToken edge in edges.Get("edges").Or(new JArray()).AsIterable())
                 {
                     JToken media = edge.Get("node").Or(new JObject()).Get("media").Or(new JObject());

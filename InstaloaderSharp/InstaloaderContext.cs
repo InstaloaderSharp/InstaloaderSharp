@@ -801,8 +801,7 @@ namespace InstaloaderSharp
         private static readonly Dictionary<string, string> DocIdFriendlyNames = new Dictionary<string, string>
         {
             { "28975909992013618", "PolarisProfilePostsTabContentQuery_connection" },
-            { "7845543455542541", "PolarisProfileReelsTabContentQuery_connection" },
-            { "27234427476213202", "PolarisProfileReelsTabContentQuery_connection" },
+            { "28728438306809751", "PolarisProfileReelsTabContentQuery_connection" },
             { "27937681195819736", "PolarisProfilePageContentQuery" },
             { "27128499623469141", "PolarisPostRootQuery" }
         };
