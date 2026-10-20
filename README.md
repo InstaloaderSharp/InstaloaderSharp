@@ -338,7 +338,7 @@ that item instead of stopping everything.
 | `--abort-on CODES` | Stop immediately if Instagram answers with one of these HTTP status codes, e.g. `--abort-on 302,400,429`. |
 | `--no-iphone` | Do not use Instagram's mobile API for higher-quality media when logged in. |
 | `--user-agent TEXT` | Browser identification sent to Instagram. |
-| `--version` | Print the version of InstaloaderSharp (1.0.1). |
+| `--version` | Print the version of InstaloaderSharp. |
 | `--help`, `-h` | Print all options. |
 
 Options can be abbreviated as long as they are unique (`--fast` for `--fast-update`), and given as
@@ -406,7 +406,7 @@ InstaloaderSharp and Instaloader can be used on the same download folders, in ei
 The command line should behave the same too (options, abbreviations, help output, error messages and exit codes).
 
 JSON metadata and resume files record the Instaloader version they were written with. InstaloaderSharp
-1.0.1 writes `"version": "4.15.4"` there (the Instaloader version it targets), not its own
+ writes `"version": "4.15.4"` there (the Instaloader version it targets), not its own
 version number, so its files should be identical to those of Instaloader.
 
 ## Library use
