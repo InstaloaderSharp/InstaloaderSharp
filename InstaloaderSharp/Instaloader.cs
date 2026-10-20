@@ -162,7 +162,7 @@ namespace InstaloaderSharp
     public class Instaloader : IDisposable
     {
         /// <summary>Version of InstaloaderSharp.</summary>
-        public const string Version = "1.0.1";
+        public const string Version = "1.0.2";
 
         /// <summary>
         /// Version of Python Instaloader that this is a port of. It is written into the "instaloader" section of
@@ -1641,7 +1641,8 @@ namespace InstaloaderSharp
                     break;
                 JObject variables = JObject.Merge((JObject)preloader["variables"],
                                                   new JObject { { "after", pageInfo["end_cursor"] }, { "first", 12 } });
-                JToken next = Context.DocIdGraphqlQuery((string)preloader["queryID"], variables)
+                JToken next = Context.DocIdGraphqlQuery((string)preloader["queryID"], variables,
+                                                           friendlyName: (string)preloader["queryName"])
                                      .Get("data").Or(new JObject()).Get(FeedConnection);
                 if (next.IsNone() || !(next is JObject) || next.Get("edges").Or(new JArray()).Count == 0)
                     break;
