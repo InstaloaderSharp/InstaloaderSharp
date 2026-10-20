@@ -21,6 +21,7 @@ InstaloaderSharp follows Instaloader closely, but it puts working correctly befo
 | `Profile.GetFollowedHashtags()` | Fails with a `TypeError` | Returns an empty list, since Instagram removed following hashtags in December 2024 |
 | Restricted profiles (for example age-restricted ones) | Reports `Profile ... does not exist.`: it reads profiles from their page as a logged-out visitor sees it, and Instagram does not show restricted profiles to logged-out visitors | Found when logged in: the profile's ID is read from the profile page as the session sees it, and the profile is loaded by its ID |
 | Looking up a profile by its ID (renamed profiles) | Uses `api/v1/users/ID/info/`, which Instagram answers with 429 for logged-in sessions | Logged in, uses the GraphQL profile query, which takes the ID |
+| Searching Instagram (`TopSearchResults` in library use) | Uses the website's top search, which Instagram has retired (404) | Uses the search of Instagram's app (`api/v1/fbsearch/topsearch_flat/`, and `api/v1/fbsearch/places/` for places). Requires login; throws `LoginRequiredException` otherwise |
 | Suggestions for misspelled usernames | Tries Instagram's retired top search (404) several times | Not made, since the search is retired; the error is `Profile ... does not exist.` |
 | Logged-in post downloads | For some accounts, Instagram answers every query with a redirect to its home page (`HTTP redirect from https://www.instagram.com/graphql/query to https://www.instagram.com/`), and no posts are downloaded, without an error | Works; see below |
 
