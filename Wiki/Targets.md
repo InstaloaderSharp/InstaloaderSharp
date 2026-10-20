@@ -43,6 +43,8 @@ By default this downloads the profile picture, the profile's metadata and all it
 
 **Private profiles** can only be downloaded if you are [logged in](Logging-in) with an account that follows them. Otherwise only the profile picture and the profile's metadata are saved, and the error `Login required.` or `Private but not followed.` is reported.
 
+**Restricted profiles**, for example age-restricted ones, are only shown to logged-in users. Without a login they are reported as not existing.
+
 **Renamed profiles** are found again: the first download stores the profile's numeric ID in a file named `id` in its folder. If you later give the old name, the program looks the profile up by its ID, prints that it was renamed, and renames the folder to the new name. See [Downloaded files](Downloaded-files#renamed-profiles).
 
 **Profiles that blocked you**: when you are logged in and a profile cannot be found or has blocked your account, the program tries again without logging in. If the profile is public, it is then downloaded anonymously, with a warning.

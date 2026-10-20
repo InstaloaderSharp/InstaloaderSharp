@@ -1055,6 +1055,32 @@ namespace InstaloaderSharp
             return scripts;
         }
 
+        private static readonly Regex ProfileIdRegex =
+            new Regex(@"""page_logging"":\{""name"":""profilePage"",""params"":\{[^}]*?""profile_id"":""(\d+)""");
+
+        /// <summary>
+        /// The ID of the profile that a profile page names in its logging parameters, with the page loaded with this
+        /// context's session, or null if the page names none.
+        /// </summary>
+        /// <param name="path">Path of the profile page, e.g. "instagram/".</param>
+        public long? GetProfileIdFromPage(string path)
+        {
+            string html;
+            try
+            {
+                html = GetPageText(path, true);
+            }
+            catch (QueryReturnedNotFoundException)
+            {
+                return null;
+            }
+            Match match = ProfileIdRegex.Match(html);
+            long profileId;
+            if (match.Success && long.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out profileId))
+                return profileId;
+            return null;
+        }
+
         /// <summary>Loads a page of www.instagram.com as a browser's page navigation and returns its HTML.</summary>
         /// <param name="path">Path of the page, e.g. "" for the home page.</param>
         /// <param name="loggedIn">Whether to load the page with the logged-in session or as a logged-out visitor.</param>

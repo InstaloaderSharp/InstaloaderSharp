@@ -73,7 +73,10 @@ This happens with Instaloader, and with older versions of InstaloaderSharp, when
 ## Profiles and posts
 
 **`Profile ... does not exist.`**
-Check the spelling: usernames contain only letters, digits, `.` and `_`. The profile may have been renamed (if you downloaded it before, the program finds it by its ID), deleted, or it may have blocked your account; logged in, the program then tries again without logging in.
+Check the spelling: usernames contain only letters, digits, `.` and `_`. The profile may have been renamed (if you downloaded it before, the program finds it by its ID), deleted, or it may have blocked your account; logged in, the program then tries again without logging in. Restricted profiles, for example age-restricted ones, are only shown to logged-in users: log in to download them.
+
+**`JSON Query to web/search/topsearch/: 404 Not Found` and `api/v1/users/.../info/: 429 Too Many Requests`.**
+An older version of InstaloaderSharp could not find restricted profiles, and fell back to lookups that Instagram has retired or refuses. Update to the [latest version](https://github.com/InstaloaderSharp/InstaloaderSharp/releases).
 
 **`Login required.` or `Private but not followed.`**
 The profile is private. You need to be logged in with an account that follows it.

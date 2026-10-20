@@ -55,10 +55,11 @@ namespace InstaloaderSharp
             // profile embedded. The web_profile_info endpoint previously used here is refused
             // with HTTP 400 for some professional profiles, and with HTTP 401 or 429 for some
             // sessions, both anonymously and when logged in.
+            string path = string.Format("{0}/", Python.PyStr.Lower(username));
             List<JObject> page;
             try
             {
-                page = context.GetPageData(string.Format("{0}/", Python.PyStr.Lower(username)));
+                page = context.GetPageData(path);
             }
             catch (QueryReturnedNotFoundException)
             {
@@ -99,28 +100,38 @@ namespace InstaloaderSharp
 
             if (context.IsLoggedIn)
             {
-                // The page did not show the profile; look its user ID up with Instagram's top
-                // search instead and load the profile by ID.
-                List<Profile> profiles;
-                try
+                // Instagram does not show restricted profiles, such as age-restricted ones, to logged-out
+                // visitors, so the page embeds no profile. Loaded with the session, the page does not embed
+                // the profile either, but names its ID. (Instaloader 4.15.4 reports that the profile does not
+                // exist. Instagram's top search, which could find the ID too, is answered with 404.)
+                long? profileId = context.GetProfileIdFromPage(path);
+                if (profileId != null)
                 {
-                    profiles = new List<Profile>(new TopSearchResults(context, username).GetProfiles());
-                }
-                catch (Exception ex) when (ex is InstaloaderException || ex is PyKeyError || ex is PyTypeError)
-                {
-                    profiles = null;
-                }
-                foreach (Profile profile in profiles ?? new List<Profile>())
-                {
-                    if (string.Equals(profile.Username, username, StringComparison.OrdinalIgnoreCase))
-                    {
-                        profile.ObtainMetadata();
+                    Profile profile = LoadByIdLoggedIn(context, profileId.Value);
+                    if (profile != null && string.Equals(profile.Username, username, StringComparison.OrdinalIgnoreCase))
                         return profile;
-                    }
                 }
             }
 
             throw new ProfileNotExistsException(string.Format("Profile {0} does not exist.", username));
+        }
+
+        /// <summary>
+        /// Loads the profile with the given ID with the GraphQL profile query of logged-in sessions, or returns null
+        /// if there is no such profile.
+        /// </summary>
+        private static Profile LoadByIdLoggedIn(InstaloaderContext context, long profileId)
+        {
+            var profile = new Profile(context, new JObject { { "id", profileId }, { "username", "" } });
+            try
+            {
+                profile.ObtainMetadata();
+            }
+            catch (ProfileNotExistsException)
+            {
+                return null;
+            }
+            return profile.Username.Length > 0 ? profile : null;
         }
 
         /// <summary>
@@ -133,6 +144,18 @@ namespace InstaloaderSharp
             Profile cached;
             if (context.ProfileIdCache.TryGetValue(profileId, out cached))
                 return cached;
+            Profile profile;
+            if (context.IsLoggedIn)
+            {
+                // The GraphQL profile query takes the ID. (Instaloader 4.15.4 uses api/v1/users/ID/info/, which
+                // Instagram answered with 429 for logged-in sessions in October 2026.)
+                profile = LoadByIdLoggedIn(context, profileId);
+                if (profile == null)
+                    throw new ProfileNotExistsException("No profile found, the user may have blocked you (ID: " +
+                                                        profileId + ").");
+                context.ProfileIdCache[profileId] = profile;
+                return profile;
+            }
             // Resolve the current username from the user id, then load the full profile.
             // The GraphQL user query previously used here started responding with HTTP 400.
             JToken user;
@@ -144,7 +167,6 @@ namespace InstaloaderSharp
             {
                 user = null;
             }
-            Profile profile;
             if (user != null && user.Truthy && user.Get("username").Or(null) != null)
                 profile = FromUsername(context, (string)user["username"]);
             else
@@ -242,22 +264,8 @@ namespace InstaloaderSharp
             }
             catch (Exception err) when (err is QueryReturnedNotFoundException || err is PyKeyError)
             {
-                var topSearchResults = new TopSearchResults(_context, Username);
-                var similarProfiles = new List<string>();
-                foreach (Profile profile in topSearchResults.GetProfiles())
-                    similarProfiles.Add(profile.Username);
-                if (similarProfiles.Count > 0)
-                {
-                    if (similarProfiles.Contains(Username))
-                        throw new ProfileNotExistsException(
-                            string.Format("Profile {0} seems to exist, but could not be loaded.", Username), err);
-                    throw new ProfileNotExistsException(
-                        string.Format("Profile {0} does not exist.\nThe most similar profile{1}: {2}.",
-                                      Username,
-                                      similarProfiles.Count > 1 ? "s are" : " is",
-                                      string.Join(", ", similarProfiles.GetRange(0, Math.Min(5, similarProfiles.Count)))),
-                        err);
-                }
+                // Instaloader 4.15.4 suggests similar profiles from Instagram's top search here, which is answered
+                // with 404.
                 throw new ProfileNotExistsException(string.Format("Profile {0} does not exist.", Username), err);
             }
         }
