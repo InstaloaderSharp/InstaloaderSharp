@@ -168,6 +168,20 @@ foreach (Story story in L.GetStories(new[] { profile.Userid }))
 L.DownloadHighlights(profile);
 ```
 
+Searching Instagram for profiles, hashtags and places (logged in; otherwise the constructor throws `LoginRequiredException`):
+
+```csharp
+var results = new TopSearchResults(L.Context, "stockholm");
+foreach (Profile p in results.GetProfiles())
+    Console.WriteLine("@" + p.Username + " " + p.FullName);
+foreach (Hashtag h in results.GetHashtags())
+    Console.WriteLine("#" + h.Name + " " + h.Mediacount);
+foreach (PostLocation l in results.GetLocations())
+    Console.WriteLine(l.Name + " %" + l.Id);
+```
+
+Places are searched with a separate request when `GetLocations()` is first used.
+
 Further downloads: `L.DownloadFeedPosts(maxCount: 50)`, `L.DownloadSavedPosts()`, `L.DownloadLocation("123456789")`, `L.DownloadTagged(profile)`, `L.DownloadReels(profile)`, `L.DownloadProfilepic(profile)`.
 
 ## Saving and loading metadata files

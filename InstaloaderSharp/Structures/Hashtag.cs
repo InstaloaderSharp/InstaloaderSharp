@@ -307,22 +307,75 @@ namespace InstaloaderSharp
         private readonly InstaloaderContext _context;
         private readonly string _searchstring;
         private readonly JObject _node;
+        private bool _placesSearched;
 
-        /// <param name="context">InstaloaderContext used to send the query for the search.</param>
+        /// <param name="context">InstaloaderContext used to send the query for the search. Must be logged in.</param>
         /// <param name="searchstring">String to search for with Instagram's "top search".</param>
+        /// <exception cref="LoginRequiredException">If the context is not logged in.</exception>
         public TopSearchResults(InstaloaderContext context, string searchstring)
         {
             _context = context;
             _searchstring = searchstring;
-            // The `__a` param is only needed to prevent `get_json()` from searching for 'window._sharedData'.
-            _node = context.GetJson("web/search/topsearch/",
-                                    new JObject
-                                    {
-                                        { "context", "blended" },
-                                        { "query", searchstring },
-                                        { "include_reel", false },
-                                        { "__a", 1 }
-                                    });
+            // Instagram has retired the website's top search, web/search/topsearch/, which Instaloader 4.15.4 uses
+            // (404). The search of Instagram's app answers logged-in sessions only, with a list of users and
+            // hashtags; places have a search of their own, which GetLocations() sends when it is first used.
+            if (!context.IsLoggedIn)
+                throw new LoginRequiredException("Searching Instagram requires login.");
+            JObject result = context.GetIphoneJson("api/v1/fbsearch/topsearch_flat/",
+                                                   new JObject
+                                                   {
+                                                       { "query", searchstring },
+                                                       { "context", "blended" },
+                                                       { "search_surface", "top_search_page" }
+                                                   });
+            // Sort the entries into the lists of the former top search, which the methods below read.
+            var users = new JArray();
+            var hashtags = new JArray();
+            var places = new JArray();
+            foreach (JToken entry in result.Get("list", new JArray()).AsIterable())
+            {
+                if (entry.Get("user") is JObject)
+                {
+                    users.Add(entry);
+                }
+                else if (entry.Get("hashtag") is JObject)
+                {
+                    // Hashtag.Mediacount reads the count from here; without it, it loads the hashtag's page.
+                    var hashtag = (JObject)entry["hashtag"];
+                    if (!hashtag.ContainsKey("edge_hashtag_to_media") && hashtag.ContainsKey("media_count"))
+                        hashtag["edge_hashtag_to_media"] = new JObject { { "count", hashtag["media_count"] } };
+                    hashtags.Add(entry);
+                }
+                else if (entry.Get("place") is JObject)
+                {
+                    places.Add(entry);
+                }
+            }
+            _node = new JObject { { "users", users }, { "hashtags", hashtags }, { "places", places } };
+        }
+
+        /// <summary>
+        /// The places of the search. The app's top search returns none, so they are searched separately, once. If
+        /// that fails, the error is reported and no places are returned, so that the other results stay usable.
+        /// </summary>
+        private JArray Places()
+        {
+            var places = (JArray)_node["places"];
+            if (places.Count == 0 && !_placesSearched)
+            {
+                _placesSearched = true;
+                try
+                {
+                    JObject result = _context.GetIphoneJson("api/v1/fbsearch/places/", new JObject { { "query", _searchstring } });
+                    foreach (JToken item in result.Get("items", new JArray()).AsIterable())
+                        places.Add(new JObject { { "place", item } });
+                }
+                catch (ConnectionException err)
+                {
+                    _context.Error(string.Format("Searching places for \"{0}\" failed: {1}", _searchstring, err.Message));
+                }
+            }
+            return places;
         }
 
         /// <summary>Provides the Profile instances from the search result.</summary>
@@ -351,7 +404,7 @@ namespace InstaloaderSharp
         /// <summary>Provides instances of PostLocation from the search result.</summary>
         public IEnumerable<PostLocation> GetLocations()
         {
-            foreach (JToken location in _node.Get("places", new JArray()).AsIterable())
+            foreach (JToken location in Places())
             {
                 JToken place = location.Get("place", new JObject());
                 string slug = (string)(place.Get("slug") ?? JValue.Null);
