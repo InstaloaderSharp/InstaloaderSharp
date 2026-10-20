@@ -11,6 +11,8 @@ download to the advanced options.
 
 If you prefer a graphical user interface, have a look at [InstaloaderSharp GUI](https://github.com/InstaloaderSharp/InstaloaderSharpGUI).
 
+The full manual is in the [wiki](https://github.com/InstaloaderSharp/InstaloaderSharp/wiki/Home).
+
 * [Requirements and building](#requirements-and-building)
 * [Quick start](#quick-start)
 * [Targets: what to download](#targets-what-to-download)
