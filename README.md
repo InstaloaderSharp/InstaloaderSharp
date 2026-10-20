@@ -459,6 +459,11 @@ so resume files get saved), and the `with` context managers are methods taking a
   other values (e.g. `:` becomes `：`). Instaloader leaves them unchanged and fails with
   `OSError: [Errno 22] Invalid argument`. Path separators from formats are kept, so `{date_utc:%Y/%m}`
   still creates subdirectories.
+* Logged-in GraphQL queries (posts of a profile, reels, post details, further pages of `:feed`) are sent the
+  way Instagram's website sends them: with the session's request token (`fb_dtsg`), the query's name and the
+  browser's `Sec-Fetch-*` headers. Since October 2026, Instagram redirects queries without them to its home
+  page for some accounts, and Instaloader downloads no posts (it shows *"HTTP redirect from
+  https://www.instagram.com/graphql/query to https://www.instagram.com/"*).
 
 ## Disclaimer
 

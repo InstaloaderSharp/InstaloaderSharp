@@ -751,8 +751,11 @@ namespace InstaloaderSharp
         /// <param name="docId">doc_id for the query.</param>
         /// <param name="variables">Variables for the Query.</param>
         /// <param name="referer">HTTP Referer, or null.</param>
+        /// <param name="friendlyName">
+        /// The web app's name of the query (fb_api_req_friendly_name), or null to look it up by <paramref name="docId"/>.
+        /// </param>
         /// <returns>The server's response dictionary.</returns>
-        public JObject DocIdGraphqlQuery(string docId, JObject variables, string referer = null)
+        public JObject DocIdGraphqlQuery(string docId, JObject variables, string referer = null, string friendlyName = null)
         {
             string csrf = FindCsrfToken();
             if (string.IsNullOrEmpty(csrf))
@@ -769,19 +772,95 @@ namespace InstaloaderSharp
                 if (referer != null)
                     tmpsession.Headers["referer"] = UrlUtil.Quote(referer);
                 string variablesJson = PyJson.Dumps(variables, null, ",", ":");
-                respJson = GetJson("graphql/query",
-                                   new JObject
-                                   {
-                                       { "variables", variablesJson },
-                                       { "doc_id", docId },
-                                       { "server_timestamps", "true" }
-                                   },
-                                   session: tmpsession,
-                                   usePost: true);
+                var form = new JObject
+                {
+                    { "variables", variablesJson },
+                    { "doc_id", docId },
+                    { "server_timestamps", "true" }
+                };
+                if (IsLoggedIn)
+                    AddWebAppQueryFields(tmpsession, form, docId, friendlyName);
+                try
+                {
+                    respJson = GetJson("graphql/query", form, session: tmpsession, usePost: true);
+                }
+                catch (ConnectionException)
+                {
+                    // The token may have expired; get a new one for the next query.
+                    _fbDtsg = null;
+                    throw;
+                }
             }
-            if (!respJson.ContainsKey("status"))
+            // Responses to queries with a friendly name have no "status" field.
+            if (!respJson.ContainsKey("status") && !respJson.ContainsKey("data"))
                 Error("GraphQL response did not contain a \"status\" field.");
             return respJson;
+        }
+
+        /// <summary>The web app's names of the doc_id queries (fb_api_req_friendly_name).</summary>
+        private static readonly Dictionary<string, string> DocIdFriendlyNames = new Dictionary<string, string>
+        {
+            { "28975909992013618", "PolarisProfilePostsTabContentQuery_connection" },
+            { "7845543455542541", "PolarisProfileReelsTabContentQuery_connection" },
+            { "27234427476213202", "PolarisProfileReelsTabContentQuery_connection" },
+            { "27937681195819736", "PolarisProfilePageContentQuery" },
+            { "27128499623469141", "PolarisPostRootQuery" }
+        };
+
+        private const string FbDtsgMarker = @"""DTSGInitialData"",[],{""token"":""";
+        private string _fbDtsg;
+        private Session _fbDtsgSession;
+
+        /// <summary>
+        /// Makes a logged-in doc_id query look like the web app's: with the session's request token (fb_dtsg), the
+        /// query's friendly name and the Sec-Fetch-* headers of a script request. Since October 2026, Instagram
+        /// answers logged-in queries without them with a redirect to its home page, for some sessions
+        /// (Instaloader 4.15.4: "HTTP redirect from https://www.instagram.com/graphql/query to
+        /// https://www.instagram.com/"). Instagram requires all three, but does not check the friendly name.
+        /// </summary>
+        private void AddWebAppQueryFields(Session tmpsession, JObject form, string docId, string friendlyName)
+        {
+            string name;
+            if (friendlyName == null && DocIdFriendlyNames.TryGetValue(docId, out name))
+                friendlyName = name;
+            string fbDtsg = GetFbDtsg();
+            if (fbDtsg != null)
+                form["fb_dtsg"] = fbDtsg;
+            if (friendlyName != null)
+            {
+                form["fb_api_caller_class"] = "RelayModern";
+                form["fb_api_req_friendly_name"] = friendlyName;
+                tmpsession.Headers["X-FB-Friendly-Name"] = friendlyName;
+            }
+            tmpsession.Headers["Origin"] = "https://www.instagram.com";
+            tmpsession.Headers["Sec-Fetch-Dest"] = "empty";
+            tmpsession.Headers["Sec-Fetch-Mode"] = "cors";
+            tmpsession.Headers["Sec-Fetch-Site"] = "same-origin";
+        }
+
+        /// <summary>The request token (fb_dtsg) of the logged-in session, from Instagram's home page, or null.</summary>
+        private string GetFbDtsg()
+        {
+            if (_fbDtsg != null && ReferenceEquals(_fbDtsgSession, _session))
+                return _fbDtsg;
+            string html;
+            try
+            {
+                html = GetPageText("", true);
+            }
+            catch (ConnectionException err)
+            {
+                Error(string.Format("Unable to get the request token from Instagram's home page: {0}", err.Message),
+                      repeatAtEnd: false);
+                return null;
+            }
+            int start = html.IndexOf(FbDtsgMarker, StringComparison.Ordinal);
+            int end = start < 0 ? -1 : html.IndexOf('"', start + FbDtsgMarker.Length);
+            if (end < 0)
+                return null;
+            _fbDtsg = html.Substring(start + FbDtsgMarker.Length, end - start - FbDtsgMarker.Length);
+            _fbDtsgSession = _session;
+            return _fbDtsg;
         }
 
         /// <summary>Retrieve a list of GraphQL nodes.</summary>
@@ -963,6 +1042,25 @@ namespace InstaloaderSharp
         /// <exception cref="ConnectionException">When the request failed.</exception>
         public List<JToken> GetPageScripts(string path, bool loggedIn)
         {
+            var scripts = new List<JToken>();
+            foreach (Match script in ScriptJsonRegex.Matches(GetPageText(path, loggedIn)))
+            {
+                try
+                {
+                    scripts.Add(PyJson.Loads(script.Groups[1].Value));
+                }
+                catch (JsonDecodeError)
+                {
+                }
+            }
+            return scripts;
+        }
+
+        /// <summary>Loads a page of www.instagram.com as a browser's page navigation and returns its HTML.</summary>
+        /// <param name="path">Path of the page, e.g. "" for the home page.</param>
+        /// <param name="loggedIn">Whether to load the page with the logged-in session or as a logged-out visitor.</param>
+        private string GetPageText(string path, bool loggedIn)
+        {
             DoSleep();
             _rateController.WaitBeforeQuery("other");
             string url = string.Format("https://www.instagram.com/{0}", path);
@@ -995,18 +1093,7 @@ namespace InstaloaderSharp
                 throw new QueryReturnedNotFoundException(ResponseError(resp));
             if (resp.StatusCode != 200)
                 throw new ConnectionException(ResponseError(resp));
-            var scripts = new List<JToken>();
-            foreach (Match script in ScriptJsonRegex.Matches(resp.Text))
-            {
-                try
-                {
-                    scripts.Add(PyJson.Loads(script.Groups[1].Value));
-                }
-                catch (JsonDecodeError)
-                {
-                }
-            }
-            return scripts;
+            return resp.Text;
         }
 
         /// <summary>Write raw response data into a file.</summary>

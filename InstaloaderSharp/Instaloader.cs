@@ -1641,7 +1641,8 @@ namespace InstaloaderSharp
                     break;
                 JObject variables = JObject.Merge((JObject)preloader["variables"],
                                                   new JObject { { "after", pageInfo["end_cursor"] }, { "first", 12 } });
-                JToken next = Context.DocIdGraphqlQuery((string)preloader["queryID"], variables)
+                JToken next = Context.DocIdGraphqlQuery((string)preloader["queryID"], variables,
+                                                           friendlyName: (string)preloader["queryName"])
                                      .Get("data").Or(new JObject()).Get(FeedConnection);
                 if (next.IsNone() || !(next is JObject) || next.Get("edges").Or(new JArray()).Count == 0)
                     break;
