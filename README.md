@@ -468,6 +468,12 @@ so resume files get saved), and the `with` context managers are methods taking a
   https://www.instagram.com/graphql/query to https://www.instagram.com/"*). Reels (`--reels`) are loaded with
   the query of the website's reels tab, since Instagram answers Instaloader's older reels query without reels
   when it is sent this way.
+* Restricted profiles (for example age-restricted ones), which Instagram does not show to logged-out
+  visitors, are found when logged in: the program reads the profile's ID from the profile page as the session
+  sees it, and loads the profile by its ID. Instaloader reports that such profiles do not exist. When logged
+  in, profiles are also looked up by ID (for renamed profiles) with this query, instead of
+  `api/v1/users/ID/info/`, which Instagram answers with 429. Since Instagram has retired its top search (404),
+  no similar profile names are suggested for usernames that do not exist; Instaloader still tries the search.
 
 ## Disclaimer
 
