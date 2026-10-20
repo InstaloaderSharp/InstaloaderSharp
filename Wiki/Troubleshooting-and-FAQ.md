@@ -68,7 +68,7 @@ Instagram has restricted the account and wants you to confirm something. Open In
 Instagram refuses more and more requests without login. Log in; see [Logging in](Logging-in).
 
 **`HTTP redirect from https://www.instagram.com/graphql/query to https://www.instagram.com/` and no posts are downloaded.**
-This happens with Instaloader and InstaloaderSharp and earlier when Instagram demands that queries look like its website's. Update to latest InstaloaderSharp. If it happens with a current version, your session may be invalid: import fresh cookies with `--load-cookies`.
+This happens with Instaloader, and with older versions of InstaloaderSharp, when Instagram demands that queries look like its website's. Update to the [latest version](https://github.com/InstaloaderSharp/InstaloaderSharp/releases) of InstaloaderSharp. If it happens with the latest version, your session may be invalid: import fresh cookies with `--load-cookies`.
 
 ## Profiles and posts
 
@@ -97,6 +97,12 @@ The download links in the file have expired. Download the post by its shortcode 
 
 **`--stories` downloads nothing.**
 Stories need a login, and only exist for 24 hours. The profile may have no current story, or you may not be allowed to see it (private profile, close friends).
+
+**`--reels` fails with `InvalidCastException: Unable to cast object of type 'InstaloaderSharp.Json.JValue' to type 'InstaloaderSharp.Json.JObject'`.**
+An older version of InstaloaderSharp used a reels query that Instagram no longer answers. Update to the [latest version](https://github.com/InstaloaderSharp/InstaloaderSharp/releases).
+
+**`Instagram's response to the reels query contains no reels.`**
+Instagram has changed its reels query again. Check for a newer version, or [report it](Building-and-contributing#reporting-bugs). The rest of the download continues.
 
 **Story download fails with an error about a property.**
 `--filename-pattern` is used for story items too. A placeholder that only posts have, such as `{likes}`, fails for story items. Use placeholders both have, such as `{date_utc}` and `{shortcode}`.

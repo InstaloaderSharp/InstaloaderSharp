@@ -23,7 +23,7 @@ InstaloaderSharp follows Instaloader closely, but it puts working correctly befo
 
 ## How requests are sent
 
-- **Logged-in queries are sent like the website's.** Since October 2026, Instagram redirects logged-in GraphQL queries to its home page, for some accounts, unless they carry the session's request token (`fb_dtsg`, from Instagram's home page), the query's name and the browser's `Sec-Fetch-*` headers. InstaloaderSharp sends them for queries of profile posts, reels, post details and further pages of `:feed`.
+- **Logged-in queries are sent like the website's.** Since October 2026, Instagram redirects logged-in GraphQL queries to its home page, for some accounts, unless they carry the session's request token (`fb_dtsg`, from Instagram's home page), the query's name and the browser's `Sec-Fetch-*` headers. InstaloaderSharp sends them for queries of profile posts, reels, post details and further pages of `:feed`. Reels are loaded with the query of the website's reels tab (`PolarisProfileReelsTabContentQuery_connection`), since Instagram answers Instaloader's older reels query without reels when it is sent this way.
 - **Access token for the app interface.** Requests to Instagram's app interface (`i.instagram.com`) obtain the app's access token first, if the session does not have one yet, for example a session imported from a browser. Without it, Instagram refuses the story tray and profile information.
 - **Retries of POST queries are sent as POST.** Instaloader retries failed `doc_id` (POST) queries as GET requests.
 

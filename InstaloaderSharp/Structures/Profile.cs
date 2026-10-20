@@ -583,31 +583,58 @@ namespace InstaloaderSharp
                 isFirst: MakeIsNewestChecker());
         }
 
+        /// <summary>
+        /// doc_id of the query of the web app's reels tab (PolarisProfileReelsTabContentQuery_connection). Sent with
+        /// the web app's request fields (see InstaloaderContext.DocIdGraphqlQuery), the older query of Instaloader
+        /// 4.15.4, 7845543455542541, is answered without reels (null).
+        /// </summary>
+        internal const string ReelsDocId = "28728438306809751";
+
+        /// <summary>Variables of the reels tab query for the profile with the given ID.</summary>
+        internal static JObject ReelsQueryVariables(string userId)
+        {
+            return new JObject
+            {
+                {
+                    "data", new JObject
+                    {
+                        { "include_feed_video", true },
+                        { "page_size", 12 },
+                        { "target_user_id", userId }
+                    }
+                },
+                { "first", 12 },
+                { "id", userId },
+                { "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider", false }
+            };
+        }
+
+        /// <summary>The connection of reels in a response to the reels tab query, or null if there is none.</summary>
+        internal static JObject ReelsConnection(JObject response)
+        {
+            return response.Get("data").Or(new JObject()).Get("fetch__XDTUserDict").Or(new JObject()).Get("clips_connection") as JObject;
+        }
+
         /// <summary>Retrieve all reels from a profile.</summary>
         public NodeIterator<Post> GetReels()
         {
             ObtainMetadata();
             return new NodeIterator<Post>(
                 context: _context,
-                edgeExtractor: d => (JObject)d["data"]["xdt_api__v1__clips__user__connection_v2"],
+                edgeExtractor: d =>
+                {
+                    JObject connection = ReelsConnection(d);
+                    if (connection == null)
+                        throw new BadResponseException("Instagram's response to the reels query contains no reels.");
+                    return connection;
+                },
                 // Reels post info is incomplete relative to regular posts so we create a Post from the shortcode
                 // and fetch the additional metadata with an additional API request per Reel
                 nodeWrapper: n => Post.FromShortcode(_context, (string)n["media"]["code"]),
-                queryVariables: new JObject
-                {
-                    {
-                        "data", new JObject
-                        {
-                            { "page_size", 12 },
-                            { "include_feed_video", true },
-                            { "target_user_id", Userid.ToString(System.Globalization.CultureInfo.InvariantCulture) }
-                        }
-                    }
-                },
+                queryVariables: ReelsQueryVariables(Userid.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 queryReferer: string.Format("https://www.instagram.com/{0}/", Username),
                 isFirst: MakeIsNewestChecker(),
-                // fb_api_req_friendly_name=PolarisProfileReelsTabContentQuery_connection
-                docId: "7845543455542541",
+                docId: ReelsDocId,
                 queryHash: null);
         }
 
