@@ -802,6 +802,7 @@ namespace InstaloaderSharp
         {
             { "28975909992013618", "PolarisProfilePostsTabContentQuery_connection" },
             { "28728438306809751", "PolarisProfileReelsTabContentQuery_connection" },
+            { "29133849526209643", "PolarisProfileTaggedTabContentQuery_connection" },
             { "27937681195819736", "PolarisProfilePageContentQuery" },
             { "27128499623469141", "PolarisPostRootQuery" }
         };
