@@ -67,6 +67,8 @@ story-timestamp = 2026-10-19T18:01:46.000000+0200
 
 The time must be written exactly in this format, including the six digits after the seconds and the time zone offset. A value the program cannot read counts as 1 January 1970, which means everything is downloaded again. The format is the same as Instaloader's, so both programs can share the file; see [File formats](File-formats#latest-stamps-file).
 
+Instagram lists tagged posts in the order in which the profile was tagged, not by the posts' dates. An old post in which the profile was tagged recently therefore stops a `--fast-update` or `--latest-stamps` download of tagged posts early. Download tagged posts without these options from time to time to catch everything.
+
 Latest stamps apply to profile targets and the `--stories`, `--tagged` and `--reels` downloads of profiles. Hashtags, locations, `:feed`, `:saved` and `:stories` do not use them; use `--fast-update` or `--count` for those.
 
 ## Fast updates or latest stamps?

@@ -577,18 +577,40 @@ namespace InstaloaderSharp
                 string.Format("https://www.instagram.com/{0}/", Username));
         }
 
+        /// <summary>
+        /// doc_id of the query of the web app's tagged tab (PolarisProfileTaggedTabContentQuery_connection). The query
+        /// of Instaloader 4.15.4, query_hash e31a871f7301132ceaab56507a66bbb7, only returns a first page of a few
+        /// posts, followed by empty pages.
+        /// </summary>
+        internal const string TaggedDocId = "29133849526209643";
+
         /// <summary>Retrieve all posts where a profile is tagged.</summary>
         public NodeIterator<Post> GetTaggedPosts()
         {
             ObtainMetadata();
             return new NodeIterator<Post>(
-                _context,
-                "e31a871f7301132ceaab56507a66bbb7",
-                d => (JObject)d["data"]["user"]["edge_user_to_photos_of_you"],
-                n => new Post(_context, n, n["owner"]["id"].ToInt64() == Userid ? this : null),
-                new JObject { { "id", Userid } },
-                string.Format("https://www.instagram.com/{0}/", Username),
-                isFirst: MakeIsNewestChecker());
+                context: _context,
+                edgeExtractor: d =>
+                {
+                    var connection = d.Get("data").Or(new JObject()).Get("xdt_api__v1__usertags__user_id__feed_connection") as JObject;
+                    if (connection == null)
+                        throw new BadResponseException("Instagram's response to the tagged posts query contains no posts.");
+                    return connection;
+                },
+                // The query returns the posts as they are shown in the grid, without their date or videos, so each
+                // post is loaded by its shortcode, as for reels.
+                nodeWrapper: n => Post.FromShortcode(_context, (string)n["code"]),
+                queryVariables: new JObject
+                {
+                    { "count", 12 },
+                    { "user_id", Userid.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                    { "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider", false },
+                    { "__relay_internal__pv__PolarisSEOIsCrawlerrelayprovider", false }
+                },
+                queryReferer: string.Format("https://www.instagram.com/{0}/", Username),
+                isFirst: MakeIsNewestChecker(),
+                docId: TaggedDocId,
+                queryHash: null);
         }
 
         /// <summary>

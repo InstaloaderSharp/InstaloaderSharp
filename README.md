@@ -474,6 +474,8 @@ so resume files get saved), and the `with` context managers are methods taking a
   in, profiles are also looked up by ID (for renamed profiles) with this query, instead of
   `api/v1/users/ID/info/`, which Instagram answers with 429. Since Instagram has retired its top search (404),
   no similar profile names are suggested for usernames that do not exist; Instaloader still tries the search.
+* Tagged posts (`--tagged`) are loaded with the query of the website's tagged tab. Instaloader's query only
+  returns the first few tagged posts (5 in a test) and then empty pages, so it stops there.
 * `TopSearchResults` (searching Instagram for profiles, hashtags and places, in library use) uses the search
   of Instagram's app (`api/v1/fbsearch/topsearch_flat/`, and `api/v1/fbsearch/places/` for places) instead
   of the website's top search, which Instagram has retired (404). It requires login and throws
