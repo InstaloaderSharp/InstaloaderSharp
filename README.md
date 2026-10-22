@@ -461,16 +461,17 @@ so resume files get saved), and the `with` context managers are methods taking a
   other values (e.g. `:` becomes `：`). Instaloader leaves them unchanged and fails with
   `OSError: [Errno 22] Invalid argument`. Path separators from formats are kept, so `{date_utc:%Y/%m}`
   still creates subdirectories.
-* Logged-in GraphQL queries (posts of a profile, reels, post details, further pages of `:feed`) are sent the
-  way Instagram's website sends them: with the session's request token (`fb_dtsg`), the query's name and the
-  browser's `Sec-Fetch-*` headers. Since October 2026, Instagram redirects queries without them to its home
+* Logged-in GraphQL queries (reels, tagged posts, post details, profile details, further pages of `:feed`) are
+  sent the way Instagram's website sends them: with the session's request token (`fb_dtsg`), the query's name
+  and the browser's `Sec-Fetch-*` headers. Profile posts go to the website's `api/graphql` endpoint instead (see
+  the Instaloader 4.16 fixes below). Since October 2026, Instagram redirects queries without them to its home
   page for some accounts, and Instaloader downloads no posts (it shows *"HTTP redirect from
   https://www.instagram.com/graphql/query to https://www.instagram.com/"*). Reels (`--reels`) are loaded with
   the query of the website's reels tab, since Instagram answers Instaloader's older reels query without reels
   when it is sent this way.
 * Some fixes of the Instaloader 4.16 pre-release are included already: logged-in profile posts are loaded with
   the website's newer posts query, sent to its `api/graphql` endpoint with the page's tokens (`fb_dtsg`, `lsd`,
-  `av`), since Instagram answers the previous query with 400 "feedback_required"; highlights are counted while
+  `av`), since Instagram answers the previous query with 400 "feedback_required", according to Instaloader; highlights are counted while
   they are downloaded (`[3/9] Retrieving highlights ...`); a page request that is redirected to the login page
   is reported as such instead of as "302 Found"; redirects of POST requests no longer repeat the request's data
   in the URL; and `Profile.GetPosts()` raises `PrivateProfileNotFollowedException` for private profiles that
@@ -479,10 +480,11 @@ so resume files get saved), and the `with` context managers are methods taking a
   visitors, are found when logged in: the program reads the profile's ID from the profile page as the session
   sees it, and loads the profile by its ID. Instaloader reports that such profiles do not exist. When logged
   in, profiles are also looked up by ID (for renamed profiles) with this query, instead of
-  `api/v1/users/ID/info/`, which Instagram answers with 429. Since Instagram has retired its top search (404),
-  no similar profile names are suggested for usernames that do not exist; Instaloader still tries the search.
+  `api/v1/users/ID/info/`, which Instagram answers with 429. No similar profile names are suggested when a
+  profile cannot be loaded; Instaloader tries the website's top search for that, which Instagram has retired (404).
 * Tagged posts (`--tagged`) are loaded with the query of the website's tagged tab. Instaloader's query only
-  returns the first few tagged posts (5 in a test) and then empty pages, so it stops there.
+  returns the first few tagged posts (5 in a test) and then empty pages, so it stops there. The tagged tab's query
+  returns the posts without their dates and videos, so each tagged post is loaded with an extra request.
 * `TopSearchResults` (searching Instagram for profiles, hashtags and places, in library use) uses the search
   of Instagram's app (`api/v1/fbsearch/topsearch_flat/`, and `api/v1/fbsearch/places/` for places) instead
   of the website's top search, which Instagram has retired (404). It requires login and throws
