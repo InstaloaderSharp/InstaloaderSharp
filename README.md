@@ -468,6 +468,13 @@ so resume files get saved), and the `with` context managers are methods taking a
   https://www.instagram.com/graphql/query to https://www.instagram.com/"*). Reels (`--reels`) are loaded with
   the query of the website's reels tab, since Instagram answers Instaloader's older reels query without reels
   when it is sent this way.
+* Some fixes of the Instaloader 4.16 pre-release are included already: logged-in profile posts are loaded with
+  the website's newer posts query, sent to its `api/graphql` endpoint with the page's tokens (`fb_dtsg`, `lsd`,
+  `av`), since Instagram answers the previous query with 400 "feedback_required"; highlights are counted while
+  they are downloaded (`[3/9] Retrieving highlights ...`); a page request that is redirected to the login page
+  is reported as such instead of as "302 Found"; redirects of POST requests no longer repeat the request's data
+  in the URL; and `Profile.GetPosts()` raises `PrivateProfileNotFollowedException` for private profiles that
+  you do not follow, instead of returning no posts.
 * Restricted profiles (for example age-restricted ones), which Instagram does not show to logged-out
   visitors, are found when logged in: the program reads the profile's ID from the profile page as the session
   sees it, and loads the profile by its ID. Instaloader reports that such profiles do not exist. When logged

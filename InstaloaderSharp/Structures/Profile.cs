@@ -65,8 +65,9 @@ namespace InstaloaderSharp
             {
                 page = new List<JObject>();
             }
-            catch (ConnectionException)
+            catch (Exception ex) when (ex is ConnectionException || ex is LoginRequiredException)
             {
+                // Logged in, the page with the session follows below.
                 if (!context.IsLoggedIn)
                     throw;
                 page = new List<JObject>();
@@ -525,41 +526,66 @@ namespace InstaloaderSharp
         }
 
         /// <summary>Retrieve all posts from a profile.</summary>
+        /// <exception cref="PrivateProfileNotFollowedException">
+        /// When logged in and the profile is private and not followed.
+        /// </exception>
         public NodeIterator<Post> GetPosts()
         {
             ObtainMetadata();
+            bool loggedIn = _context.IsLoggedIn;
+            if (loggedIn && IsPrivate && Username != Python.PyStr.Lower(_context.Username ?? ""))
+            {
+                // Instagram answers with an empty timeline rather than an error in that case. Unlike
+                // followed_by_viewer, which defaults to false, friendship_status tells whether the follow
+                // state is actually known.
+                JToken following = _node.Get("friendship_status").Or(new JObject()).Get("following");
+                if (following != null && following.Type == JTokenType.Boolean && !(bool)following)
+                    throw new PrivateProfileNotFollowedException(
+                        string.Format("Profile {0} is private but not followed.", Username));
+            }
+            var data = new JObject
+            {
+                { "count", 12 },
+                { "include_reel_media_seen_timestamp", true },
+                { "include_relationship_info", true },
+                { "latest_besties_reel_media", true },
+                { "latest_reel_media", true }
+            };
+            var variables = new JObject
+            {
+                { "data", data },
+                { "first", 12 },
+                { "include_multi_captions", true },
+                { "username", Username },
+                { "__relay_internal__pv__PolarisMultiCaptionCarouselEnabledrelayprovider", true }
+            };
+            if (loggedIn)
+            {
+                // The query, variables and endpoint (api/graphql) that the web app sends for a profile's posts tab
+                // (PolarisProfilePostsTabContentQuery_connection), as in Instaloader 4.16. Logged in, Instagram
+                // answers the previous queries, 7898261790222653 ("execution error") and 28975909992013618 (400
+                // "feedback_required"), with errors.
+                variables["__relay_internal__pv__PolarisShortDramaEnabledrelayprovider"] = true;
+                variables["__relay_internal__pv__PolarisSEOIsCrawlerrelayprovider"] = false;
+                variables["__relay_internal__pv__PolarisThreadsStyleCommentsEnabledrelayprovider"] = false;
+            }
+            else
+            {
+                variables["__relay_internal__pv__PolarisShortDramaEnabledrelayprovider"] = false;
+            }
+            variables["__relay_internal__pv__PolarisReelsRecoDebugOverlayEnabledrelayprovider"] = false;
             return new NodeIterator<Post>(
                 context: _context,
                 edgeExtractor: d => (JObject)d["data"]["xdt_api__v1__feed__user_timeline_graphql_connection"],
                 nodeWrapper: n => Post.FromIphoneStruct(_context, n),
-                // The query and variables that the web app sends for a profile's posts tab
-                // (PolarisProfilePostsTabContentQuery_connection). It serves both logged-in and
-                // anonymous sessions. Instagram answers the previous logged-in query,
-                // 7898261790222653, with "execution error" or a redirect, and the previous
-                // anonymous query, 7950326061742207, with "require_login".
-                queryVariables: new JObject
-                {
-                    {
-                        "data", new JObject
-                        {
-                            { "count", 12 },
-                            { "include_reel_media_seen_timestamp", true },
-                            { "include_relationship_info", true },
-                            { "latest_besties_reel_media", true },
-                            { "latest_reel_media", true }
-                        }
-                    },
-                    { "first", 12 },
-                    { "include_multi_captions", true },
-                    { "username", Username },
-                    { "__relay_internal__pv__PolarisMultiCaptionCarouselEnabledrelayprovider", true },
-                    { "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider", false },
-                    { "__relay_internal__pv__PolarisReelsRecoDebugOverlayEnabledrelayprovider", false }
-                },
+                // Logged out, the previous query of the web app still serves the posts tab. Instagram answers the
+                // anonymous query of Instaloader 4.15.4, 7950326061742207, with "require_login".
+                queryVariables: variables,
                 queryReferer: string.Format("https://www.instagram.com/{0}/", Username),
                 isFirst: MakeIsNewestChecker(),
-                docId: "28975909992013618",
-                queryHash: null);
+                docId: loggedIn ? "29104886249145907" : "28975909992013618",
+                queryHash: null,
+                webApi: loggedIn);
         }
 
         /// <summary>Get Posts that are marked as saved by the user.</summary>

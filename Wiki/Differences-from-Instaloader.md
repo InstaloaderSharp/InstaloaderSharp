@@ -4,6 +4,7 @@ InstaloaderSharp follows Instaloader closely, but it puts working correctly befo
 
 - [Features that work again](#features-that-work-again)
 - [How requests are sent](#how-requests-are-sent)
+- [Fixes of the Instaloader 4.16 pre-release](#fixes-of-the-instaloader-416-pre-release)
 - [File names](#file-names)
 - [Logging in](#logging-in)
 - [Error handling](#error-handling)
@@ -31,6 +32,18 @@ InstaloaderSharp follows Instaloader closely, but it puts working correctly befo
 - **Logged-in queries are sent like the website's.** Since October 2026, Instagram redirects logged-in GraphQL queries to its home page, for some accounts, unless they carry the session's request token (`fb_dtsg`, from Instagram's home page), the query's name and the browser's `Sec-Fetch-*` headers. InstaloaderSharp sends them for queries of profile posts, reels, post details and further pages of `:feed`. Reels are loaded with the query of the website's reels tab (`PolarisProfileReelsTabContentQuery_connection`), since Instagram answers Instaloader's older reels query without reels when it is sent this way.
 - **Access token for the app interface.** Requests to Instagram's app interface (`i.instagram.com`) obtain the app's access token first, if the session does not have one yet, for example a session imported from a browser. Without it, Instagram refuses the story tray and profile information.
 - **Retries of POST queries are sent as POST.** Instaloader retries failed `doc_id` (POST) queries as GET requests.
+
+## Fixes of the Instaloader 4.16 pre-release
+
+These changes of the Instaloader 4.16 pre-release are included already, so InstaloaderSharp behaves in these points like Instaloader 4.16 rather than 4.15.4:
+
+- **Profile posts** are loaded, when logged in, with the website's newer posts query (`29104886249145907`), sent to its `api/graphql` endpoint with the page's tokens (`fb_dtsg`, `lsd`, `av`). Instagram answers the previous query with 400 `feedback_required`.
+- **Highlights are counted** while they are downloaded: `[3/9] Retrieving highlights "..." from profile ...`.
+- **A page request that is redirected to the login page** is reported as such (`Redirected to login page. Use --login or --load-cookies.`) instead of as `302 Found`.
+- **Redirects of POST requests** no longer repeat the request's data as URL arguments.
+- **`Profile.GetPosts()`** raises `PrivateProfileNotFollowedException` for a private profile that you do not follow, instead of returning no posts (Instagram answers with an empty list).
+
+Instaloader 4.16 also loads `:feed` from the app's timeline (`api/v1/feed/timeline/`). InstaloaderSharp keeps loading the feed the way the website does, which returns the same posts with fewer requests: in a test, the timeline returned about two posts per request among suggestions.
 
 ## File names
 
