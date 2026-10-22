@@ -579,7 +579,7 @@ namespace InstaloaderSharp
                                bool usePost = false)
         {
             bool isGraphqlQuery = parameters.ContainsKey("query_hash") && path.Contains("graphql/query");
-            bool isDocIdQuery = parameters.ContainsKey("doc_id") && path.Contains("graphql/query");
+            bool isDocIdQuery = parameters.ContainsKey("doc_id") && (path.Contains("graphql/query") || path == "api/graphql");
             bool isIphoneQuery = host == "i.instagram.com";
             bool isOtherQuery = !isGraphqlQuery && !isDocIdQuery && host == "www.instagram.com";
             Session sess = session ?? _session;
@@ -625,9 +625,11 @@ namespace InstaloaderSharp
                         throw new AbortDownloadException("Redirected to login page. You've been logged out, please wait " +
                                                          "some time, recreate the session and try again");
                     }
+                    // Redirects are followed with GET. The parameters of a POST request are its body, which must
+                    // not be sent again as query arguments.
                     if (redirectUrl.StartsWith(string.Format("https://{0}/", host)))
-                        resp = sess.Get(redirectUrl.EndsWith("/") ? redirectUrl : redirectUrl + "/", parameters,
-                                        allowRedirects: false);
+                        resp = sess.Get(redirectUrl.EndsWith("/") ? redirectUrl : redirectUrl + "/",
+                                        usePost ? null : parameters, allowRedirects: false);
                     else
                         break;
                 }
@@ -754,9 +756,15 @@ namespace InstaloaderSharp
         /// <param name="friendlyName">
         /// The web app's name of the query (fb_api_req_friendly_name), or null to look it up by <paramref name="docId"/>.
         /// </param>
+        /// <param name="webApi">
+        /// Query the web app's api/graphql endpoint, as the web app does, rather than graphql/query. Requires login.
+        /// </param>
         /// <returns>The server's response dictionary.</returns>
-        public JObject DocIdGraphqlQuery(string docId, JObject variables, string referer = null, string friendlyName = null)
+        public JObject DocIdGraphqlQuery(string docId, JObject variables, string referer = null, string friendlyName = null,
+                                         bool webApi = false)
         {
+            if (webApi && !IsLoggedIn)
+                throw new LoginRequiredException("Login required for queries to the web app's api/graphql endpoint.");
             string csrf = FindCsrfToken();
             if (string.IsNullOrEmpty(csrf))
             {
@@ -778,16 +786,18 @@ namespace InstaloaderSharp
                     { "doc_id", docId },
                     { "server_timestamps", "true" }
                 };
-                if (IsLoggedIn)
+                if (webApi)
+                    AddWebApiFields(tmpsession, form);
+                else if (IsLoggedIn)
                     AddWebAppQueryFields(tmpsession, form, docId, friendlyName);
                 try
                 {
-                    respJson = GetJson("graphql/query", form, session: tmpsession, usePost: true);
+                    respJson = GetJson(webApi ? "api/graphql" : "graphql/query", form, session: tmpsession, usePost: true);
                 }
                 catch (ConnectionException)
                 {
-                    // The token may have expired; get a new one for the next query.
-                    _fbDtsg = null;
+                    // The tokens may have expired; get new ones for the next query.
+                    _webAppTokens = null;
                     throw;
                 }
             }
@@ -801,15 +811,23 @@ namespace InstaloaderSharp
         private static readonly Dictionary<string, string> DocIdFriendlyNames = new Dictionary<string, string>
         {
             { "28975909992013618", "PolarisProfilePostsTabContentQuery_connection" },
+            { "29104886249145907", "PolarisProfilePostsTabContentQuery_connection" },
             { "28728438306809751", "PolarisProfileReelsTabContentQuery_connection" },
             { "29133849526209643", "PolarisProfileTaggedTabContentQuery_connection" },
             { "27937681195819736", "PolarisProfilePageContentQuery" },
             { "27128499623469141", "PolarisPostRootQuery" }
         };
 
-        private const string FbDtsgMarker = @"""DTSGInitialData"",[],{""token"":""";
-        private string _fbDtsg;
-        private Session _fbDtsgSession;
+        /// <summary>The tokens of the web app's queries, as embedded in its pages, and their names in the queries.</summary>
+        private static readonly KeyValuePair<string, Regex>[] WebAppTokenPatterns =
+        {
+            new KeyValuePair<string, Regex>("fb_dtsg", new Regex(@"""DTSGInitialData"",\[\],\{[^{}]*""token"":""([^""]+)""")),
+            new KeyValuePair<string, Regex>("lsd", new Regex(@"""LSD"",\[\],\{[^{}]*""token"":""([^""]+)""")),
+            new KeyValuePair<string, Regex>("av", new Regex(@"""IG_USER_EIMU"":""?(\d+)"))
+        };
+
+        private Dictionary<string, string> _webAppTokens;
+        private Session _webAppTokensSession;
 
         /// <summary>
         /// Makes a logged-in doc_id query look like the web app's: with the session's request token (fb_dtsg), the
@@ -823,8 +841,8 @@ namespace InstaloaderSharp
             string name;
             if (friendlyName == null && DocIdFriendlyNames.TryGetValue(docId, out name))
                 friendlyName = name;
-            string fbDtsg = GetFbDtsg();
-            if (fbDtsg != null)
+            string fbDtsg;
+            if (GetWebAppTokens().TryGetValue("fb_dtsg", out fbDtsg))
                 form["fb_dtsg"] = fbDtsg;
             if (friendlyName != null)
             {
@@ -838,11 +856,35 @@ namespace InstaloaderSharp
             tmpsession.Headers["Sec-Fetch-Site"] = "same-origin";
         }
 
-        /// <summary>The request token (fb_dtsg) of the logged-in session, from Instagram's home page, or null.</summary>
-        private string GetFbDtsg()
+        /// <summary>
+        /// Sends a query to the web app's api/graphql endpoint as the web app does (as Instaloader 4.16 does): with the
+        /// tokens of its pages (fb_dtsg, lsd and the account ID av), lsd also as X-FB-LSD header, and the Sec-Fetch-*
+        /// headers of a script request.
+        /// </summary>
+        private void AddWebApiFields(Session tmpsession, JObject form)
         {
-            if (_fbDtsg != null && ReferenceEquals(_fbDtsgSession, _session))
-                return _fbDtsg;
+            Dictionary<string, string> tokens = GetWebAppTokens();
+            foreach (KeyValuePair<string, Regex> pattern in WebAppTokenPatterns)
+            {
+                string value;
+                if (!tokens.TryGetValue(pattern.Key, out value))
+                    throw new BadResponseException(string.Format("The start page did not contain the token {0}.", pattern.Key));
+                form[pattern.Key] = value;
+            }
+            tmpsession.Headers["X-FB-LSD"] = tokens["lsd"];
+            tmpsession.Headers["Sec-Fetch-Dest"] = "empty";
+            tmpsession.Headers["Sec-Fetch-Mode"] = "cors";
+            tmpsession.Headers["Sec-Fetch-Site"] = "same-origin";
+        }
+
+        /// <summary>
+        /// The tokens of the web app's queries (fb_dtsg, lsd, av) for the logged-in session, from Instagram's home page,
+        /// loaded once per session. Tokens that the page does not contain are missing.
+        /// </summary>
+        private Dictionary<string, string> GetWebAppTokens()
+        {
+            if (_webAppTokens != null && ReferenceEquals(_webAppTokensSession, _session))
+                return _webAppTokens;
             string html;
             try
             {
@@ -850,17 +892,20 @@ namespace InstaloaderSharp
             }
             catch (ConnectionException err)
             {
-                Error(string.Format("Unable to get the request token from Instagram's home page: {0}", err.Message),
+                Error(string.Format("Unable to get the request tokens from Instagram's home page: {0}", err.Message),
                       repeatAtEnd: false);
-                return null;
+                return new Dictionary<string, string>();
             }
-            int start = html.IndexOf(FbDtsgMarker, StringComparison.Ordinal);
-            int end = start < 0 ? -1 : html.IndexOf('"', start + FbDtsgMarker.Length);
-            if (end < 0)
-                return null;
-            _fbDtsg = html.Substring(start + FbDtsgMarker.Length, end - start - FbDtsgMarker.Length);
-            _fbDtsgSession = _session;
-            return _fbDtsg;
+            var tokens = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, Regex> pattern in WebAppTokenPatterns)
+            {
+                Match match = pattern.Value.Match(html);
+                if (match.Success)
+                    tokens[pattern.Key] = match.Groups[1].Value;
+            }
+            _webAppTokens = tokens;
+            _webAppTokensSession = _session;
+            return tokens;
         }
 
         /// <summary>Retrieve a list of GraphQL nodes.</summary>
@@ -1114,6 +1159,16 @@ namespace InstaloaderSharp
             catch (RequestException err)
             {
                 throw new ConnectionException(string.Format("Page request to {0}: {1}", url, err.Message), err);
+            }
+            // Report a redirect to the login page as such, rather than as "302 Found" (as Instaloader 4.16 does).
+            string location = resp.IsRedirect ? resp.Headers.Get("location") ?? "" : "";
+            if (location.StartsWith("https://www.instagram.com/accounts/login") ||
+                location.StartsWith("https://i.instagram.com/accounts/login"))
+            {
+                if (!loggedIn || !IsLoggedIn)
+                    throw new LoginRequiredException("Redirected to login page. Use --login or --load-cookies.");
+                throw new AbortDownloadException("Redirected to login page. You've been logged out, please wait " +
+                                                 "some time, recreate the session and try again");
             }
             if (resp.StatusCode == 404)
                 throw new QueryReturnedNotFoundException(ResponseError(resp));

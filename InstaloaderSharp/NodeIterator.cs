@@ -143,6 +143,7 @@ namespace InstaloaderSharp
         private DateTime? _bestBefore; // UTC
         private JObject _firstNode;
         private readonly Func<T, T, bool> _isFirst;
+        private readonly bool _webApi;
         private T _current;
 
         public NodeIterator(InstaloaderContext context,
@@ -153,11 +154,13 @@ namespace InstaloaderSharp
                             string queryReferer = null,
                             JObject firstData = null,
                             Func<T, T, bool> isFirst = null,
-                            string docId = null)
+                            string docId = null,
+                            bool webApi = false)
         {
             _context = context;
             _queryHash = queryHash;
             _docId = docId;
+            _webApi = webApi;
             _edgeExtractor = edgeExtractor;
             _nodeWrapper = nodeWrapper;
             _queryVariables = queryVariables ?? new JObject();
@@ -195,7 +198,8 @@ namespace InstaloaderSharp
                 paginationVariables["last"] = JValue.Null;
             }
             JObject data = _edgeExtractor(
-                _context.DocIdGraphqlQuery(docId, JObject.Merge(_queryVariables, paginationVariables), _queryReferer));
+                _context.DocIdGraphqlQuery(docId, JObject.Merge(_queryVariables, paginationVariables), _queryReferer,
+                                           webApi: _webApi));
             _bestBefore = DateTime.UtcNow + ShelfLife;
             return data;
         }

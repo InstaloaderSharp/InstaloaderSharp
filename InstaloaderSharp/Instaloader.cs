@@ -1404,14 +1404,21 @@ namespace InstaloaderSharp
                                             Func<StoryItem, bool> storyitemFilter)
         {
             RequiresLogin();
-            foreach (Highlight userHighlight in highlights)
+            List<Highlight> userHighlights = highlights.ToList();
+            int width = userHighlights.Count.ToString(CultureInfo.InvariantCulture).Length;
+            int highlightNumber = 0;
+            foreach (Highlight userHighlight in userHighlights)
             {
+                highlightNumber++;
                 string name = userHighlight.OwnerUsername;
                 object highlightTarget = !string.IsNullOrEmpty(filenameTarget)
                     ? (object)filenameTarget
                     : new TargetPath(PostPathFormatter.SanitizePath(name, SanitizePaths),
                                      PostPathFormatter.SanitizePath(userHighlight.Title, SanitizePaths));
-                Context.Log(string.Format("Retrieving highlights \"{0}\" from profile {1}", userHighlight.Title, name));
+                Context.Log(string.Format("[{0}/{1}] Retrieving highlights \"{2}\" from profile {3}",
+                                          highlightNumber.ToString(CultureInfo.InvariantCulture).PadLeft(width),
+                                          userHighlights.Count.ToString(CultureInfo.InvariantCulture).PadLeft(width),
+                                          userHighlight.Title, name));
                 DownloadHighlightCover(userHighlight, highlightTarget);
                 int totalcount = userHighlight.Itemcount;
                 int count = 1;
