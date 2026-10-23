@@ -558,6 +558,9 @@ namespace InstaloaderSharp
                                  extraFromJson != null ? " - " + extraFromJson : "", resp.Url);
         }
 
+        /// <summary>The number of redirects that GetJson() follows for one request.</summary>
+        private const int MaxJsonRedirects = 10;
+
         /// <summary>JSON request to Instagram.</summary>
         /// <param name="path">URL, relative to the given domain which defaults to www.instagram.com/</param>
         /// <param name="parameters">request parameters</param>
@@ -613,6 +616,7 @@ namespace InstaloaderSharp
                     throw new AbortDownloadException(string.Format("Query to https://{0}/{1} responded with \"{2} {3}\"{4}{5}",
                                                                    host, path, resp.StatusCode, resp.Reason, redirect, body));
                 }
+                var redirectedTo = new HashSet<string>(StringComparer.Ordinal);
                 while (resp.IsRedirect)
                 {
                     string redirectUrl = resp.Headers["location"];
@@ -625,11 +629,23 @@ namespace InstaloaderSharp
                         throw new AbortDownloadException("Redirected to login page. You've been logged out, please wait " +
                                                          "some time, recreate the session and try again");
                     }
+                    string nextUrl = redirectUrl.EndsWith("/") ? redirectUrl : redirectUrl + "/";
+                    // For a suspended or restricted account, Instagram redirects every request to its home page, and the
+                    // home page to itself, so following the redirects would never end (as in Instaloader). Stop at a
+                    // redirect loop, at too many redirects, and at the pages of suspended accounts and challenges.
+                    if (redirectUrl.Contains("/accounts/suspended") || redirectUrl.Contains("/challenge") ||
+                        !redirectedTo.Add(nextUrl) || redirectedTo.Count > MaxJsonRedirects)
+                    {
+                        string message = string.Format("Instagram keeps redirecting https://{0}/{1} (to {2}).", host, path, redirectUrl);
+                        if (!IsLoggedIn)
+                            throw new ConnectionException(message);
+                        throw new AbortDownloadException(message + " The account may be suspended, restricted or logged " +
+                                                         "out; check it in a web browser.");
+                    }
                     // Redirects are followed with GET. The parameters of a POST request are its body, which must
                     // not be sent again as query arguments.
                     if (redirectUrl.StartsWith(string.Format("https://{0}/", host)))
-                        resp = sess.Get(redirectUrl.EndsWith("/") ? redirectUrl : redirectUrl + "/",
-                                        usePost ? null : parameters, allowRedirects: false);
+                        resp = sess.Get(nextUrl, usePost ? null : parameters, allowRedirects: false);
                     else
                         break;
                 }
