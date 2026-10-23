@@ -162,7 +162,7 @@ namespace InstaloaderSharp
     public class Instaloader : IDisposable
     {
         /// <summary>Version of InstaloaderSharp.</summary>
-        public const string Version = "1.0.6";
+        public const string Version = "1.1.0";
 
         /// <summary>
         /// Version of Python Instaloader that this is a port of. It is written into the "instaloader" section of
