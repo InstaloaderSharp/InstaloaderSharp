@@ -64,6 +64,9 @@ Instagram limited the account or the connection. The program waits and retries. 
 **`Download aborted: ... feedback_required` or `challenge_required`.**
 Instagram has restricted the account and wants you to confirm something. Open Instagram in a browser or the app with that account and follow the instructions there. Then continue; resume information was saved.
 
+**`Instagram keeps redirecting ...` or endless `HTTP redirect from ... to https://www.instagram.com/` lines.**
+Instagram redirects every request of the account, usually because it is suspended, restricted or logged out. Open Instagram in a web browser with that account and follow the instructions there; a suspended account may have to be appealed. Older versions of InstaloaderSharp, like Instaloader, follow these redirects forever; press Ctrl+C to stop them.
+
 **`Login required` or `Redirected to login page` while not logged in.**
 Instagram refuses more and more requests without login. Log in; see [Logging in](Logging-in).
 

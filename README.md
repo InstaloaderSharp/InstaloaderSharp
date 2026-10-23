@@ -434,6 +434,10 @@ so resume files get saved), and the `with` context managers are methods taking a
   encryption (`v20`) cannot be decrypted (browser_cookie3 has the same limitation), and Chrome may need to be
   closed so that its cookie database can be read. Safari is macOS-only.
 * Retries of failed `doc_id` (POST) GraphQL queries are sent as POST again; Instaloader retries them as GET.
+* Redirects of Instagram's interfaces are followed at most 10 times, and not in a loop. For a suspended or
+  restricted account, Instagram redirects every request to its home page and the home page to itself;
+  Instaloader then follows the redirects forever. InstaloaderSharp stops the download (exit code 4) with a
+  message to check the account in a web browser.
 * Syntax errors in filters are reported as an error message (exit code 2) instead of a Python traceback.
 * Sets of profiles are processed in the order they were given rather than Instaloader's set order.
 * Geotags (`--geotags`) work again, also without logging in. Instagram now names the location ID `pk` and
