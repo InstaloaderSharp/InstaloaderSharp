@@ -6,7 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace InstaloaderSharp.Tests
 {
-    /// <summary>Access to the reference files in TestData (created with Instaloader 4.15.4).</summary>
+    /// <summary>Access to the reference files in TestData (created with Instaloader 4.15.4; post.json, post.json.xz and resume.json.xz with 4.15.5).</summary>
     internal static class TestData
     {
         public static string Path(string name)

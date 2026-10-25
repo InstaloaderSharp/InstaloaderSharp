@@ -4,7 +4,7 @@ A C# / .NET Framework version of [Instaloader](https://github.com/instaloader/in
 It downloads pictures and videos along with their captions and other metadata from Instagram: whole
 profiles, single posts, hashtags, locations, your feed, your saved posts, stories and highlights.
 
-This version of InstaloaderSharp, targets compatibility with Instaloader 4.15.4 but might be compatible with later versions.
+This version of InstaloaderSharp, targets compatibility with Instaloader 4.15.5 but might be compatible with later versions.
 
 No previous knowledge of Instaloader is needed to use it; this document covers everything from a first
 download to the advanced options.
@@ -408,7 +408,7 @@ InstaloaderSharp and Instaloader can be used on the same download folders, in ei
 The command line should behave the same too (options, abbreviations, help output, error messages and exit codes).
 
 JSON metadata and resume files record the Instaloader version they were written with. InstaloaderSharp
- writes `"version": "4.15.4"` there (the Instaloader version it targets), not its own
+ writes `"version": "4.15.5"` there (the Instaloader version it targets), not its own
 version number, so its files should be identical to those of Instaloader.
 
 ## Library use
@@ -447,10 +447,10 @@ so resume files get saved), and the `with` context managers are methods taking a
 * `--igtv` only reports that Instagram has retired IGTV (former IGTV videos are downloaded as posts and
   reels); Instaloader fails with `KeyError: 'edges'`. Connections that Instagram returns without
   any items are treated as empty instead of failing.
-* `:feed` works again. Instaloader uses a query that Instagram no longer answers with the feed (it
-  fails with `TypeError: 'NoneType' object is not subscriptable`); InstaloaderSharp loads the feed the way
-  Instagram's website does: the first page from the home page, further pages with the query the home page
-  declares. Instagram's suggested posts from accounts you do not follow are skipped.
+* `:feed` is loaded the way Instagram's website does: the first page from the home page, further pages with the
+  query the home page declares. Instagram's suggested posts from accounts you do not follow are skipped.
+  Instaloader pages through the app's timeline (`api/v1/feed/timeline/`) instead, which returned fewer posts per
+  request in a test (about two, between suggestions).
 * `:stories` (the stories of all accounts you follow) works again. The list of accounts with stories comes
   from the app's story tray (`api/v1/feed/reels_tray/`) instead of a query that Instagram no longer answers.
 * Followers and followees (`@profile`, `Profile.GetFollowers()`/`GetFollowees()`) are retrieved with the
@@ -473,13 +473,18 @@ so resume files get saved), and the `with` context managers are methods taking a
   https://www.instagram.com/graphql/query to https://www.instagram.com/"*). Reels (`--reels`) are loaded with
   the query of the website's reels tab, since Instagram answers Instaloader's older reels query without reels
   when it is sent this way.
-* Some fixes of the Instaloader 4.16 pre-release are included already: logged-in profile posts are loaded with
-  the website's newer posts query, sent to its `api/graphql` endpoint with the page's tokens (`fb_dtsg`, `lsd`,
-  `av`), since Instagram answers the previous query with 400 "feedback_required", according to Instaloader; highlights are counted while
-  they are downloaded (`[3/9] Retrieving highlights ...`); a page request that is redirected to the login page
-  is reported as such instead of as "302 Found"; redirects of POST requests no longer repeat the request's data
-  in the URL; and `Profile.GetPosts()` raises `PrivateProfileNotFollowedException` for private profiles that
-  you do not follow, instead of returning no posts.
+* Fixes of the Instaloader 4.16 pre-release are included already:
+  * Profile posts are loaded with the website's newer queries, sent to its `api/graphql` endpoint. Logged in, the
+    page's tokens (`fb_dtsg`, `lsd`, `av`) are sent along, since Instagram answers the previous query with 400
+    "feedback_required", according to Instaloader. Logged out, the first posts come from the profile page, as on
+    the website, and private profiles raise `LoginRequiredException`.
+  * Logged out, post details are also queried through `api/graphql`.
+  * The play count of a reel is only fetched when it is used, which saves a request per reel or tagged video.
+  * Highlights are counted while they are downloaded (`[3/9] Retrieving highlights ...`); a page request that is
+    redirected to the login page is reported as such instead of as "302 Found"; redirects of POST requests no
+    longer repeat the request's data in the URL; and `Profile.GetPosts()` raises
+    `PrivateProfileNotFollowedException` for private profiles that you do not follow, instead of returning no
+    posts.
 * Restricted profiles (for example age-restricted ones), which Instagram does not show to logged-out
   visitors, are found when logged in: the program reads the profile's ID from the profile page as the session
   sees it, and loads the profile by its ID. Instaloader reports that such profiles do not exist. When logged

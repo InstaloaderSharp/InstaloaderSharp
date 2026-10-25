@@ -35,6 +35,31 @@ namespace InstaloaderSharp.Tests
         }
 
         [TestMethod]
+        public void FirstItemDoesNotWrapNodesAgain()
+        {
+            // The wrapper of reels and tagged posts sends a request, so it must run once per item (Instaloader 4.15.5).
+            var edges = new JArray();
+            for (int i = 0; i < 5; i++)
+                edges.Add(new JObject { { "node", new JObject { { "id", i } } } });
+            var firstData = new JObject
+            {
+                { "edges", edges },
+                { "page_info", new JObject { { "has_next_page", false } } }
+            };
+            int wrapped = 0;
+            var iterator = new NodeIterator<JObject>(TestData.Context(), null, d => d, n => { wrapped++; return n.Copy(); },
+                                                     null, null, firstData,
+                                                     (item, first) => first == null || item["id"].ToInt64() > first["id"].ToInt64(),
+                                                     "999");
+            var ids = new List<long>();
+            foreach (JObject item in iterator)
+                ids.Add(item["id"].ToInt64());
+            CollectionAssert.AreEqual(new List<long> { 0, 1, 2, 3, 4 }, ids);
+            Assert.AreEqual(4L, iterator.FirstItem["id"].ToInt64());
+            Assert.AreEqual(5, wrapped);
+        }
+
+        [TestMethod]
         public void MagicMatchesPython()
         {
             Assert.AreEqual("BeMcKw-D", CreateIterator(TestData.Context()).Magic);
