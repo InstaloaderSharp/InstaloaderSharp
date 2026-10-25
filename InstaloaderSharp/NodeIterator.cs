@@ -142,6 +142,7 @@ namespace InstaloaderSharp
         private JObject _data;
         private DateTime? _bestBefore; // UTC
         private JObject _firstNode;
+        private T _firstItem;
         private readonly Func<T, T, bool> _isFirst;
         private readonly bool _webApi;
         private T _current;
@@ -189,12 +190,12 @@ namespace InstaloaderSharp
 
         private JObject QueryDocId(string docId, string after = null)
         {
-            var paginationVariables = new JObject { { "__relay_internal__pv__PolarisFeedShareMenurelayprovider", false } };
+            var paginationVariables = new JObject();
             if (after != null)
             {
                 paginationVariables["after"] = after;
                 paginationVariables["before"] = JValue.Null;
-                paginationVariables["first"] = 12;
+                paginationVariables["first"] = GraphqlPageLengthValue;
                 paginationVariables["last"] = JValue.Null;
             }
             JObject data = _edgeExtractor(
@@ -238,12 +239,18 @@ namespace InstaloaderSharp
                 if (_isFirst != null)
                 {
                     if (_isFirst(item, FirstItem))
+                    {
                         _firstNode = node;
+                        _firstItem = item;
+                    }
                 }
                 else
                 {
                     if (_firstNode == null)
+                    {
                         _firstNode = node;
+                        _firstItem = item;
+                    }
                 }
                 _current = item;
                 return true;
@@ -322,7 +329,15 @@ namespace InstaloaderSharp
         /// </summary>
         public T FirstItem
         {
-            get { return _firstNode != null ? _nodeWrapper(_firstNode) : null; }
+            get
+            {
+                // Keep the item rather than wrapping the node again: the wrapper of some iterators, such as those of
+                // reels and tagged posts, sends a request (as in Instaloader 4.15.5). After thawing, only the node is
+                // known, so the item is restored from it once.
+                if (_firstItem == null && _firstNode != null)
+                    _firstItem = _nodeWrapper(_firstNode);
+                return _firstItem;
+            }
         }
 
         public static int PageLength()

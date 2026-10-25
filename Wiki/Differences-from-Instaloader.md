@@ -14,7 +14,7 @@ InstaloaderSharp follows Instaloader closely, but it puts working correctly befo
 
 | Feature | Instaloader | InstaloaderSharp |
 |---|---|---|
-| `:feed` | Fails with `TypeError: 'NoneType' object is not subscriptable`: it uses a query that Instagram no longer answers with the feed | Loads the feed the way Instagram's website does: the first page from the home page, further pages with the query the home page declares. Instagram's suggested posts from accounts you do not follow are skipped |
+| `:feed` | Pages through the app's timeline (`api/v1/feed/timeline/`), which returned about two posts per request in a test, between suggestions | Loads the feed the way Instagram's website does: the first page from the home page, further pages with the query the home page declares, which returns the same posts with fewer requests. Instagram's suggested posts from accounts you do not follow are skipped |
 | `:stories` | Uses a query for the list of accounts with stories that Instagram no longer answers | Gets the list from the app's story tray (`api/v1/feed/reels_tray/`) |
 | Followers and followees (`@profile`, `Profile.GetFollowers()`, `GetFollowees()`) | Its query returns no profiles | Uses the friendships interface of Instagram's web app |
 | Geotags (`--geotags`) | Fails with `KeyError: 'id'`: Instagram now names the location ID `pk` and no longer provides `slug` and `has_public_page`; the fallback lookup returns no data either | Works, also without logging in. In saved metadata, a post's location has no `slug` |
@@ -36,15 +36,15 @@ InstaloaderSharp follows Instaloader closely, but it puts working correctly befo
 
 ## Fixes of the Instaloader 4.16 pre-release
 
-These changes of the Instaloader 4.16 pre-release are included already, so InstaloaderSharp behaves in these points like Instaloader 4.16 rather than 4.15.4:
+These changes of the Instaloader 4.16 pre-release are included already, so InstaloaderSharp behaves in these points like Instaloader 4.16 rather than 4.15.5:
 
 - **Profile posts** are loaded, when logged in, with the website's newer posts query (`29104886249145907`), sent to its `api/graphql` endpoint with the page's tokens (`fb_dtsg`, `lsd`, `av`). According to Instaloader, Instagram answers the previous query with 400 `feedback_required`.
+- **Profile posts logged out** are loaded as the logged-out website does: the first posts from the profile page, further ones with the query `28904005159232689` through `api/graphql`. A private profile raises `LoginRequiredException`. Logged out, **post details** are also queried through `api/graphql`.
+- **The play count of a reel** is only fetched when it is used, which saves a request per reel or tagged video.
 - **Highlights are counted** while they are downloaded: `[3/9] Retrieving highlights "..." from profile ...`.
 - **A page request that is redirected to the login page** is reported as such (`Redirected to login page. Use --login or --load-cookies.`) instead of as `302 Found`.
 - **Redirects of POST requests** no longer repeat the request's data as URL arguments.
 - **`Profile.GetPosts()`** raises `PrivateProfileNotFollowedException` for a private profile that you do not follow, instead of returning no posts (Instagram answers with an empty list).
-
-Instaloader 4.16 also loads `:feed` from the app's timeline (`api/v1/feed/timeline/`). InstaloaderSharp keeps loading the feed the way the website does, which returns the same posts with fewer requests: in a test, the timeline returned about two posts per request among suggestions.
 
 ## File names
 

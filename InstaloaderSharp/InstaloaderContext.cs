@@ -773,14 +773,12 @@ namespace InstaloaderSharp
         /// The web app's name of the query (fb_api_req_friendly_name), or null to look it up by <paramref name="docId"/>.
         /// </param>
         /// <param name="webApi">
-        /// Query the web app's api/graphql endpoint, as the web app does, rather than graphql/query. Requires login.
+        /// Query the web app's api/graphql endpoint, as the web app does, rather than graphql/query.
         /// </param>
         /// <returns>The server's response dictionary.</returns>
         public JObject DocIdGraphqlQuery(string docId, JObject variables, string referer = null, string friendlyName = null,
                                          bool webApi = false)
         {
-            if (webApi && !IsLoggedIn)
-                throw new LoginRequiredException("Login required for queries to the web app's api/graphql endpoint.");
             string csrf = FindCsrfToken();
             if (string.IsNullOrEmpty(csrf))
             {
@@ -883,9 +881,11 @@ namespace InstaloaderSharp
             foreach (KeyValuePair<string, Regex> pattern in WebAppTokenPatterns)
             {
                 string value;
-                if (!tokens.TryGetValue(pattern.Key, out value))
+                if (tokens.TryGetValue(pattern.Key, out value))
+                    form[pattern.Key] = value;
+                // Logged out, the start page has no fb_dtsg, and the web app sends its queries without.
+                else if (pattern.Key != "fb_dtsg" || IsLoggedIn)
                     throw new BadResponseException(string.Format("The start page did not contain the token {0}.", pattern.Key));
-                form[pattern.Key] = value;
             }
             tmpsession.Headers["X-FB-LSD"] = tokens["lsd"];
             tmpsession.Headers["Sec-Fetch-Dest"] = "empty";
@@ -894,8 +894,8 @@ namespace InstaloaderSharp
         }
 
         /// <summary>
-        /// The tokens of the web app's queries (fb_dtsg, lsd, av) for the logged-in session, from Instagram's home page,
-        /// loaded once per session. Tokens that the page does not contain are missing.
+        /// The tokens of the web app's queries (fb_dtsg, lsd, av) for the session, from Instagram's home page, loaded
+        /// once per session. Tokens that the page does not contain are missing.
         /// </summary>
         private Dictionary<string, string> GetWebAppTokens()
         {

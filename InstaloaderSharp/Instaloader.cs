@@ -168,7 +168,7 @@ namespace InstaloaderSharp
         /// Version of Python Instaloader that this is a port of. It is written into the "instaloader" section of
         /// JSON metadata and resume files, so that they are identical to the ones written by Python Instaloader.
         /// </summary>
-        public const string InstaloaderVersion = "4.15.4";
+        public const string InstaloaderVersion = "4.15.5";
 
         #region module-level functions
 
@@ -1614,7 +1614,8 @@ namespace InstaloaderSharp
         /// The feed as Instagram's web app loads it: the first page is embedded in the home page, together with the
         /// GraphQL query (doc_id and variables) that the web app uses to load further pages. Posts of followed
         /// accounts are yielded; posts that Instagram suggests from other accounts are skipped. (Instaloader
-        /// 4.15.4 uses a query_hash query that Instagram no longer answers with the feed.)
+        /// 4.15.5 pages through the app's api/v1/feed/timeline/ instead, which returns fewer posts per request,
+        /// between suggestions; 4.15.4 uses a query that Instagram no longer answers with the feed.)
         /// </summary>
         private IEnumerable<Post> GetFeedPostsImpl()
         {

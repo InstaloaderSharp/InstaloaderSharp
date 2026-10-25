@@ -47,7 +47,7 @@ A metadata file contains a JSON object with two members:
 {
     "instaloader": {
         "node_type": "Post",
-        "version": "4.15.4"
+        "version": "4.15.5"
     },
     "node": {
         "__typename": "GraphSidecar",
@@ -60,7 +60,7 @@ A metadata file contains a JSON object with two members:
 ```
 
 - `instaloader.node_type` is `Post`, `StoryItem`, `Profile`, `Hashtag` or `FrozenNodeIterator` (for resume files).
-- `instaloader.version` is the Instaloader version the file is compatible with: InstaloaderSharp writes `4.15.4`, not its own version, so that its files are identical to Instaloader's.
+- `instaloader.version` is the Instaloader version the file is compatible with: InstaloaderSharp writes `4.15.5`, not its own version, so that its files are identical to Instaloader's.
 - `node` is the item as Instagram reported it, in the form Instaloader uses (Instagram's GraphQL field names such as `edge_media_preview_like`, `display_url` and `taken_at_timestamp`). Posts that were fetched from Instagram's app interface also contain the app's data under `iphone_struct`. Profiles contain their metadata; posts may contain their owner's profile under `owner`.
 
 **`.json.xz`** files contain the JSON in compact form (no spaces, keys not sorted), compressed with xz (LZMA2, without integrity check). Any xz tool can decompress them, for example 7-Zip or `xz -d`.

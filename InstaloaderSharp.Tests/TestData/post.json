@@ -1,7 +1,7 @@
 {
     "instaloader": {
         "node_type": "Post",
-        "version": "4.15.4"
+        "version": "4.15.5"
     },
     "node": {
         "__typename": "GraphSidecar",

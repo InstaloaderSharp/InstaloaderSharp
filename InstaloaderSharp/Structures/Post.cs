@@ -124,14 +124,14 @@ namespace InstaloaderSharp
         }
 
         /// <summary>Fetch play_count for a reel via the clips connection endpoint as a fallback.</summary>
-        private static JToken FetchPlayCountFromClips(InstaloaderContext context, JToken userId, string shortcode)
+        private static JToken FetchPlayCountFromClips(InstaloaderContext context, string userId, string shortcode)
         {
             try
             {
                 // The web app's reels tab query; sent with the web app's request fields, the older query of
                 // Instaloader 4.15.4, 27234427476213202, is answered without reels.
                 JObject resp = context.DocIdGraphqlQuery(InstaloaderSharp.Profile.ReelsDocId,
-                                                         InstaloaderSharp.Profile.ReelsQueryVariables(Python.PyStr.Str(userId)));
+                                                         InstaloaderSharp.Profile.ReelsQueryVariables(userId));
                 JToken edges = (JToken)InstaloaderSharp.Profile.ReelsConnection(resp) ?? new JObject();
                 foreach (JToken edge in edges.Get("edges").Or(new JArray()).AsIterable())
                 {
@@ -177,8 +177,6 @@ namespace InstaloaderSharp
             picJson["video_duration"] = media.Get("video_duration") ?? JValue.Null;
             picJson["video_view_count"] = media.Get("view_count") ?? JValue.Null;
             picJson["video_play_count"] = media.Get("play_count") ?? JValue.Null;
-            if (isVideoType && picJson["video_view_count"].IsNull)
-                picJson["video_play_count"] = FetchPlayCountFromClips(context, user["pk"], (string)media["code"]);
             JToken caption = media.Get("caption");
             JToken captionText = caption is JObject ? caption.Get("text") : null;
             picJson["edge_media_to_caption"] = !captionText.IsNone()
@@ -338,7 +336,9 @@ namespace InstaloaderSharp
                     {
                         { "shortcode", Shortcode },
                         { "__relay_internal__pv__PolarisAIGMMediaWebLabelEnabledrelayprovider", false }
-                    });
+                    },
+                    // As the logged-out web app does (Instaloader 4.16).
+                    webApi: !_context.IsLoggedIn);
                 JToken webInfo = resp.Get("data").Or(new JObject()).Get("xdt_api__v1__media__shortcode__web_info").Or(new JObject());
                 JToken items = webInfo.Get("items");
                 if (items == null || !items.Truthy)
@@ -684,7 +684,21 @@ namespace InstaloaderSharp
         /// <summary>Play count of the video, or null.</summary>
         public long? VideoPlayCount
         {
-            get { return IsVideo ? (long?)Field("video_play_count") : null; }
+            get
+            {
+                if (!IsVideo)
+                    return null;
+                var playCount = (long?)Field("video_play_count");
+                // Fetched only when needed, as in Instaloader 4.16, since it takes a request of its own. Not logged in,
+                // the clips connection is null.
+                if (playCount == null && VideoViewCount == null && _context.IsLoggedIn)
+                {
+                    JToken fetched = FetchPlayCountFromClips(_context, OwnerId.ToString(System.Globalization.CultureInfo.InvariantCulture), Shortcode);
+                    if (!fetched.IsNone())
+                        playCount = fetched.ToInt64();
+                }
+                return playCount;
+            }
         }
 
         /// <summary>Duration of the video in seconds, or null.</summary>
@@ -887,22 +901,11 @@ namespace InstaloaderSharp
             if (Likes == 0)
                 // Avoid doing additional requests if there are no comments
                 yield break;
-            JToken likesEdges = Field("edge_media_preview_like", "edges");
-            if (Likes == likesEdges.Count)
-            {
-                // If the Post's metadata already contains all likes, don't do GraphQL requests to obtain them
-                foreach (JToken like in likesEdges.AsIterable())
-                    yield return new Profile(_context, (JObject)like["node"]);
-                yield break;
-            }
-            foreach (Profile p in new NodeIterator<Profile>(
-                _context,
-                "1cb6ec562846122743b61e492c85999f",
-                d => (JObject)d["data"]["shortcode_media"]["edge_liked_by"],
-                n => new Profile(_context, n),
-                new JObject { { "shortcode", Shortcode } },
-                string.Format("https://www.instagram.com/p/{0}/", Shortcode)))
-                yield return p;
+            // Up to 99 likes, as in Instaloader 4.15.5; its previous query is no longer answered.
+            JObject data = _context.GetJson(string.Format(System.Globalization.CultureInfo.InvariantCulture, "api/v1/media/{0}/likers/", Mediaid),
+                                            new JObject());
+            foreach (JToken user in data.Get("users", new JArray()).AsIterable())
+                yield return new Profile(_context, (JObject)user);
         }
 
         /// <summary>Whether Post is a sponsored post, equivalent to non-empty <see cref="SponsorUsers"/>.</summary>
