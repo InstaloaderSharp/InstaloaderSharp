@@ -570,6 +570,7 @@ namespace InstaloaderSharp
         /// <param name="attempt">Internal retry counter.</param>
         /// <param name="responseHeaders">If given, filled with the response headers.</param>
         /// <param name="usePost">Use POST instead of GET to make the request</param>
+        /// <param name="retry">Retry a failed request, with an error message, up to the maximum number of attempts.</param>
         /// <returns>Decoded response dictionary</returns>
         /// <exception cref="AbortDownloadException">When the server responds with
         /// 'feedback_required'/'checkpoint_required'/'challenge_required'</exception>
@@ -579,7 +580,7 @@ namespace InstaloaderSharp
         /// <exception cref="ConnectionException">When query repeatedly failed.</exception>
         public JObject GetJson(string path, JObject parameters, string host = "www.instagram.com",
                                Session session = null, int attempt = 1, HttpHeaders responseHeaders = null,
-                               bool usePost = false)
+                               bool usePost = false, bool retry = true)
         {
             bool isGraphqlQuery = parameters.ContainsKey("query_hash") && path.Contains("graphql/query");
             bool isDocIdQuery = parameters.ContainsKey("doc_id") && (path.Contains("graphql/query") || path == "api/graphql");
@@ -693,7 +694,7 @@ namespace InstaloaderSharp
             catch (Exception err) when (err is ConnectionException || err is JsonDecodeError || err is RequestException)
             {
                 string errorString = string.Format("JSON Query to {0}: {1}", path, err.Message);
-                if (attempt == MaxConnectionAttempts)
+                if (attempt == MaxConnectionAttempts || !retry)
                 {
                     if (err is QueryReturnedNotFoundException)
                         throw new QueryReturnedNotFoundException(errorString, err);
@@ -993,16 +994,18 @@ namespace InstaloaderSharp
                 return;
             try
             {
+                // A single attempt, without error messages: the request only serves to obtain the token, and
+                // Instagram refuses it for some accounts (403 "something went wrong"). Without the token, the
+                // actual requests are sent as before and report a problem, if there is one.
                 GetIphoneJsonCore(string.Format("api/v1/friendships/{0}/following/", userId),
-                                  new JObject { { "count", 1 } }, false);
+                                  new JObject { { "count", 1 } }, false, retry: false);
             }
             catch (ConnectionException)
             {
-                // The actual request reports the problem, if there is one.
             }
         }
 
-        private JObject GetIphoneJsonCore(string path, JObject parameters, bool usePost)
+        private JObject GetIphoneJsonCore(string path, JObject parameters, bool usePost, bool retry = true)
         {
             using (Session tempsession = CopySession(_session, RequestTimeout))
             {
@@ -1056,7 +1059,8 @@ namespace InstaloaderSharp
                     tempsession.Cookies.Clear();
 
                 var responseHeaders = new HttpHeaders();
-                JObject response = GetJson(path, parameters, "i.instagram.com", tempsession, responseHeaders: responseHeaders, usePost: usePost);
+                JObject response = GetJson(path, parameters, "i.instagram.com", tempsession, responseHeaders: responseHeaders,
+                                           usePost: usePost, retry: retry);
 
                 // Extract the ig-set-* headers and use them in the next request
                 foreach (var kv in responseHeaders)
