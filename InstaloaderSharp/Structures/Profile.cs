@@ -157,24 +157,40 @@ namespace InstaloaderSharp
                 context.ProfileIdCache[profileId] = profile;
                 return profile;
             }
-            // Resolve the current username from the user id, then load the full profile.
-            // The GraphQL user query previously used here started responding with HTTP 400.
+            // Logged out, the GraphQL profile query of the web app through api/graphql, as in Instaloader 4.16.
+            // Instaloader 4.15.5 resolves the username with api/v1/users/ID/info/ instead.
             JToken user;
             try
             {
-                user = context.GetJson(string.Format("api/v1/users/{0}/info/", profileId), new JObject()).Get("user");
+                user = context.DocIdGraphqlQuery("27937681195819736", ProfileQueryVariables(profileId), webApi: true)
+                              .Get("data").Or(new JObject()).Get("user");
             }
             catch (QueryReturnedNotFoundException)
             {
                 user = null;
             }
             if (user != null && user.Truthy && user.Get("username").Or(null) != null)
-                profile = FromUsername(context, (string)user["username"]);
+                profile = new Profile(context, NormalizeProfileData(user.AsObject()));
             else
                 throw new ProfileNotExistsException("No profile found, the user may have blocked you (ID: " +
                                                     profileId + ").");
             context.ProfileIdCache[profileId] = profile;
             return profile;
+        }
+
+        /// <summary>Variables of the web app's GraphQL profile query (PolarisProfilePageContentQuery) for a user ID.</summary>
+        private static JObject ProfileQueryVariables(JToken userId)
+        {
+            return new JObject
+            {
+                { "id", Python.PyStr.Str(userId) },
+                { "render_surface", "PROFILE" },
+                { "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider", true },
+                { "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider", false },
+                { "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider", false },
+                { "__relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider", false },
+                { "enable_integrity_filters", true }
+            };
         }
 
         /// <summary>Create a profile from a given iphone_struct.</summary>
@@ -243,17 +259,7 @@ namespace InstaloaderSharp
                         return;
                     }
                     JToken userId = _node.Get("id").Or(null) ?? _node.Get("pk");
-                    var variables = new JObject
-                    {
-                        { "id", Python.PyStr.Str(userId) },
-                        { "render_surface", "PROFILE" },
-                        { "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider", true },
-                        { "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider", false },
-                        { "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider", false },
-                        { "__relay_internal__pv__PolarisWebSchoolsEnabledrelayprovider", false },
-                        { "enable_integrity_filters", true }
-                    };
-                    JObject result = _context.DocIdGraphqlQuery("27937681195819736", variables);
+                    JObject result = _context.DocIdGraphqlQuery("27937681195819736", ProfileQueryVariables(userId));
                     if (result == null)
                         throw new QueryReturnedNotFoundException("GraphQL query returned None");
                     JToken user = result.Get("data", new JObject()).Get("user");

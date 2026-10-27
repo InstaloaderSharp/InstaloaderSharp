@@ -4,7 +4,7 @@ A C# / .NET Framework version of [Instaloader](https://github.com/instaloader/in
 It downloads pictures and videos along with their captions and other metadata from Instagram: whole
 profiles, single posts, hashtags, locations, your feed, your saved posts, stories and highlights.
 
-This version of InstaloaderSharp, targets compatibility with Instaloader 4.15.5 but might be compatible with later versions.
+This version of InstaloaderSharp, targets compatibility with Instaloader 4.16 but might be compatible with later versions.
 
 No previous knowledge of Instaloader is needed to use it; this document covers everything from a first
 download to the advanced options.
@@ -408,7 +408,7 @@ InstaloaderSharp and Instaloader can be used on the same download folders, in ei
 The command line should behave the same too (options, abbreviations, help output, error messages and exit codes).
 
 JSON metadata and resume files record the Instaloader version they were written with. InstaloaderSharp
- writes `"version": "4.15.5"` there (the Instaloader version it targets), not its own
+ writes `"version": "4.16"` there (the Instaloader version it targets), not its own
 version number, so its files should be identical to those of Instaloader.
 
 ## Library use
@@ -433,7 +433,6 @@ so resume files get saved), and the `with` context managers are methods taking a
   browsers and Firefox/LibreWolf are supported on Windows; cookies using Chrome's newer app-bound
   encryption (`v20`) cannot be decrypted (browser_cookie3 has the same limitation), and Chrome may need to be
   closed so that its cookie database can be read. Safari is macOS-only.
-* Retries of failed `doc_id` (POST) GraphQL queries are sent as POST again; Instaloader retries them as GET.
 * Redirects of Instagram's interfaces are followed at most 10 times, and not in a loop. For a suspended or
   restricted account, Instagram redirects every request to its home page and the home page to itself;
   Instaloader then follows the redirects forever. InstaloaderSharp stops the download (exit code 4) with a
@@ -455,9 +454,6 @@ so resume files get saved), and the `with` context managers are methods taking a
   from the app's story tray (`api/v1/feed/reels_tray/`) instead of a query that Instagram no longer answers.
 * Followers and followees (`@profile`, `Profile.GetFollowers()`/`GetFollowees()`) are retrieved with the
   friendships API of Instagram's web app; Instaloader's query returns no profiles anymore.
-* Requests to Instagram's app API (`i.instagram.com`) obtain the app's access token first, if the session
-  does not have one yet (e.g. a session imported from a browser); without it, Instagram refuses e.g. the
-  story tray and profile information.
 * `Profile.GetFollowedHashtags()` returns an empty list, since Instagram removed following hashtags in
   December 2024; Instaloader fails with a `TypeError`.
 * Formatted values in `--dirname-pattern` and `--filename-pattern`, such as `{date_utc:%c}` or
@@ -467,33 +463,24 @@ so resume files get saved), and the `with` context managers are methods taking a
   still creates subdirectories.
 * Logged-in GraphQL queries (reels, tagged posts, post details, profile details, further pages of `:feed`) are
   sent the way Instagram's website sends them: with the session's request token (`fb_dtsg`), the query's name
-  and the browser's `Sec-Fetch-*` headers. Profile posts go to the website's `api/graphql` endpoint instead (see
-  the Instaloader 4.16 fixes below). Since October 2026, Instagram redirects queries without them to its home
-  page for some accounts, and Instaloader downloads no posts (it shows *"HTTP redirect from
-  https://www.instagram.com/graphql/query to https://www.instagram.com/"*). Reels (`--reels`) are loaded with
-  the query of the website's reels tab, since Instagram answers Instaloader's older reels query without reels
-  when it is sent this way.
-* Fixes of the Instaloader 4.16 pre-release are included already:
-  * Profile posts are loaded with the website's newer queries, sent to its `api/graphql` endpoint. Logged in, the
-    page's tokens (`fb_dtsg`, `lsd`, `av`) are sent along, since Instagram answers the previous query with 400
-    "feedback_required", according to Instaloader. Logged out, the first posts come from the profile page, as on
-    the website, and private profiles raise `LoginRequiredException`.
-  * Logged out, post details are also queried through `api/graphql`.
-  * The play count of a reel is only fetched when it is used, which saves a request per reel or tagged video.
-  * Highlights are counted while they are downloaded (`[3/9] Retrieving highlights ...`); a page request that is
-    redirected to the login page is reported as such instead of as "302 Found"; redirects of POST requests no
-    longer repeat the request's data in the URL; and `Profile.GetPosts()` raises
-    `PrivateProfileNotFollowedException` for private profiles that you do not follow, instead of returning no
-    posts.
-* Restricted profiles (for example age-restricted ones), which Instagram does not show to logged-out
-  visitors, are found when logged in: the program reads the profile's ID from the profile page as the session
-  sees it, and loads the profile by its ID. Instaloader reports that such profiles do not exist. When logged
-  in, profiles are also looked up by ID (for renamed profiles) with this query, instead of
-  `api/v1/users/ID/info/`, which Instagram answers with 429. No similar profile names are suggested when a
-  profile cannot be loaded; Instaloader tries the website's top search for that, which Instagram has retired (404).
+  and the browser's `Sec-Fetch-*` headers. Since October 2026, Instagram redirects queries without them to its
+  home page for some accounts (*"HTTP redirect from https://www.instagram.com/graphql/query to
+  https://www.instagram.com/"*). Instaloader sends profile posts the website's way too (through `api/graphql`),
+  but its other logged-in queries without these fields, so that it cannot load single posts, reels or profile
+  details for such accounts.
+* Reels (`--reels`) are loaded with the query of the website's reels tab, since Instagram answers Instaloader's
+  older reels query without reels when it is sent the website's way.
 * Tagged posts (`--tagged`) are loaded with the query of the website's tagged tab. Instaloader's query only
   returns the first few tagged posts (5 in a test) and then empty pages, so it stops there. The tagged tab's query
   returns the posts without their dates and videos, so each tagged post is loaded with an extra request.
+* Highlights whose items Instagram refuses to list with Instaloader's query (400 "invalid request") are
+  downloaded from the app's `reels_media` answer instead, when logged in. If retrieving one highlight still fails,
+  the other highlights are downloaded; Instaloader stops downloading the profile's highlights then.
+* Restricted profiles (for example age-restricted ones), which Instagram does not show to logged-out
+  visitors, are found when logged in: the program reads the profile's ID from the profile page as the session
+  sees it, and loads the profile by its ID. Instaloader reports that such profiles do not exist. No similar
+  profile names are suggested when a profile cannot be loaded; Instaloader tries the website's top search for
+  that, which Instagram has retired (404).
 * `TopSearchResults` (searching Instagram for profiles, hashtags and places, in library use) uses the search
   of Instagram's app (`api/v1/fbsearch/topsearch_flat/`, and `api/v1/fbsearch/places/` for places) instead
   of the website's top search, which Instagram has retired (404). It requires login and throws
