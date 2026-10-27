@@ -508,17 +508,69 @@ namespace InstaloaderSharp
         {
             if (_items == null || !_items.Truthy)
             {
-                _items = ContextField.GraphqlQuery(
-                    "45246d3fe16ccc6577e0bd297a5db1ab",
-                    new JObject
-                    {
-                        { "reel_ids", new JArray() },
-                        { "tag_names", new JArray() },
-                        { "location_ids", new JArray() },
-                        { "highlight_reel_ids", new JArray { HighlightId.ToString(CultureInfo.InvariantCulture) } },
-                        { "precomposed_overlay", false }
-                    })["data"]["reels_media"][0]["items"].AsArray();
+                try
+                {
+                    _items = ContextField.GraphqlQuery(
+                        "45246d3fe16ccc6577e0bd297a5db1ab",
+                        new JObject
+                        {
+                            { "reel_ids", new JArray() },
+                            { "tag_names", new JArray() },
+                            { "location_ids", new JArray() },
+                            { "highlight_reel_ids", new JArray { HighlightId.ToString(CultureInfo.InvariantCulture) } },
+                            { "precomposed_overlay", false }
+                        })["data"]["reels_media"][0]["items"].AsArray();
+                }
+                catch (Exception ex) when ((ex is QueryReturnedBadRequestException || ex is ConnectionException) &&
+                                           ContextField.IphoneSupport && ContextField.IsLoggedIn)
+                {
+                    // Instagram refuses this query for some highlights with 400 "invalid request" (also in
+                    // Instaloader 4.16). The app's reels_media, which is requested for the items' best versions
+                    // anyway, contains the items too.
+                    FetchIphoneStruct();
+                    if (IphoneStructField == null)
+                        throw;
+                    var items = new JArray();
+                    foreach (JToken item in IphoneStructField.Get("items", new JArray()).AsIterable())
+                        items.Add(StoryItemNodeFromIphoneItem((JObject)item));
+                    _items = items;
+                }
             }
+        }
+
+        /// <summary>Converts an item of the app's reels_media into the form of the GraphQL story items.</summary>
+        private static JObject StoryItemNodeFromIphoneItem(JObject item)
+        {
+            JToken mediaType = item.Get("media_type");
+            bool isVideo = mediaType != null && mediaType.Type == JTokenType.Integer && mediaType.ToInt64() == 2;
+            JToken takenAt = item["taken_at"];
+            JToken user = item.Get("user").Or(new JObject());
+            var node = new JObject
+            {
+                { "__typename", isVideo ? "GraphStoryVideo" : "GraphStoryImage" },
+                { "id", Python.PyStr.Str(item["pk"]) },
+                { "is_video", isVideo },
+                { "taken_at_timestamp", takenAt },
+                // The app's highlight items have no expiry; as in the GraphQL items, it is 24 hours after posting.
+                { "expiring_at_timestamp", item.Get("expiring_at").Or(null) ?? (JToken)(takenAt.ToInt64() + 24 * 60 * 60) },
+                { "owner", new JObject { { "id", Python.PyStr.Str(user.Get("pk")) }, { "username", user.Get("username").Or("") } } }
+            };
+            JToken candidates = item.Get("image_versions2").Or(new JObject()).Get("candidates").Or(new JArray());
+            node["display_resources"] = candidates.Truthy
+                ? new JArray { new JObject { { "src", candidates[0]["url"] } } }
+                : new JArray();
+            JToken videos = item.Get("video_versions").Or(new JArray());
+            if (isVideo && videos.Truthy)
+                node["video_resources"] = new JArray { new JObject { { "src", videos[0]["url"] } } };
+            JToken caption = item.Get("caption");
+            JToken captionText = caption is JObject ? caption.Get("text") : null;
+            if (!captionText.IsNone())
+                node["edge_media_to_caption"] = new JObject
+                {
+                    { "edges", new JArray { new JObject { { "node", new JObject { { "text", captionText } } } } } }
+                };
+            node["iphone_struct"] = item;
+            return node;
         }
 
         protected override void FetchIphoneStruct()

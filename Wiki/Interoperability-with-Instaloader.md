@@ -31,7 +31,7 @@ Compatibility is a goal that is tested carefully, but it is difficult to guarant
 | Pictures, videos, captions, `id` files | | Should be byte-identical, with the same file names and modification times |
 | Comments (`*_comments.json`), geotags (`*_location.txt`) | JSON, text | Should be the same format, and comments are merged in the same way |
 
-Metadata and resume files record the Instaloader version they were written with. InstaloaderSharp writes `"version": "4.15.5"`, the Instaloader version it targets, not its own version, so its files should be identical to Instaloader's. The formats are described in [File formats](File-formats).
+Metadata and resume files record the Instaloader version they were written with. InstaloaderSharp writes `"version": "4.16"`, the Instaloader version it targets, not its own version, so its files should be identical to Instaloader's. The formats are described in [File formats](File-formats).
 
 ## The command line
 
@@ -52,7 +52,7 @@ You do not need Python for InstaloaderSharp. Instaloader can still be installed 
 InstaloaderSharp works correctly where Instaloader fails because Instagram changed, or because of bugs. In those cases it deliberately differs, for example:
 
 - `:stories`, followees (`@profile`), geotags and all tagged posts work, where Instaloader fails.
-- Logged-in downloads of profiles work for accounts that Instagram redirects in Instaloader.
+- Logged-in downloads of single posts, reels and highlights work where Instagram refuses Instaloader's queries.
 - Date formats with colons in file names, such as `{date_utc:%c}`, work.
 
 The complete list, with explanations, is in [Differences from Instaloader](Differences-from-Instaloader). Files written in these cases are still in Instaloader's format, so Instaloader can read them.

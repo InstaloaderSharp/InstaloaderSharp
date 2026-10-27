@@ -165,8 +165,21 @@ namespace InstaloaderSharp
 
         public string Username { get; set; }
 
-        /// <summary>The user ID as returned at login (a JSON value), or null.</summary>
-        public JToken UserId { get; set; }
+        /// <summary>
+        /// The ID of the user this session is logged in as, from the session's ds_user_id cookie (as in Instaloader
+        /// 4.16), or null if not logged in. It is therefore also known for sessions from browser cookies or session
+        /// files, which Instaloader 4.15.5 sends as "None". Setting it has no effect; the setter is kept for
+        /// compatibility.
+        /// </summary>
+        public JToken UserId
+        {
+            get
+            {
+                string id = _session == null ? null : _session.Cookies.Get("ds_user_id");
+                return string.IsNullOrEmpty(id) ? null : (JToken)id;
+            }
+            set { }
+        }
 
         public bool Sleep { get; set; }
         public bool Quiet { get; set; }
@@ -570,7 +583,6 @@ namespace InstaloaderSharp
         /// <param name="attempt">Internal retry counter.</param>
         /// <param name="responseHeaders">If given, filled with the response headers.</param>
         /// <param name="usePost">Use POST instead of GET to make the request</param>
-        /// <param name="retry">Retry a failed request, with an error message, up to the maximum number of attempts.</param>
         /// <returns>Decoded response dictionary</returns>
         /// <exception cref="AbortDownloadException">When the server responds with
         /// 'feedback_required'/'checkpoint_required'/'challenge_required'</exception>
@@ -580,7 +592,7 @@ namespace InstaloaderSharp
         /// <exception cref="ConnectionException">When query repeatedly failed.</exception>
         public JObject GetJson(string path, JObject parameters, string host = "www.instagram.com",
                                Session session = null, int attempt = 1, HttpHeaders responseHeaders = null,
-                               bool usePost = false, bool retry = true)
+                               bool usePost = false)
         {
             bool isGraphqlQuery = parameters.ContainsKey("query_hash") && path.Contains("graphql/query");
             bool isDocIdQuery = parameters.ContainsKey("doc_id") && (path.Contains("graphql/query") || path == "api/graphql");
@@ -694,7 +706,7 @@ namespace InstaloaderSharp
             catch (Exception err) when (err is ConnectionException || err is JsonDecodeError || err is RequestException)
             {
                 string errorString = string.Format("JSON Query to {0}: {1}", path, err.Message);
-                if (attempt == MaxConnectionAttempts || !retry)
+                if (attempt == MaxConnectionAttempts)
                 {
                     if (err is QueryReturnedNotFoundException)
                         throw new QueryReturnedNotFoundException(errorString, err);
@@ -971,51 +983,37 @@ namespace InstaloaderSharp
         /// <param name="usePost">Send the parameters as form data with POST instead of GET.</param>
         public JObject GetIphoneJson(string path, JObject parameters, bool usePost = false)
         {
-            EnsureIphoneAuthorization();
             return GetIphoneJsonCore(path, parameters, usePost);
         }
 
-        private Session _iphoneAuthorizationRequestedFor;
-
-        /// <summary>
-        /// Many endpoints of i.instagram.com (such as the story tray and user info) answer "something went wrong"
-        /// unless the request carries the app's bearer token, which Instagram issues (ig-set-authorization) in
-        /// the response to a request to one of the endpoints that work without it. A session created from
-        /// browser cookies has no token yet, so request one first, once per session.
-        /// </summary>
-        private void EnsureIphoneAuthorization()
-        {
-            if (ReferenceEquals(_iphoneAuthorizationRequestedFor, _session) || !IsLoggedIn ||
-                IphoneHeaders.ContainsKey("authorization"))
-                return;
-            _iphoneAuthorizationRequestedFor = _session;
-            string userId = UserId.IsNone() ? _session.Cookies.Get("ds_user_id") : PyStr.Str(UserId);
-            if (string.IsNullOrEmpty(userId))
-                return;
-            try
-            {
-                // A single attempt, without error messages: the request only serves to obtain the token, and
-                // Instagram refuses it for some accounts (403 "something went wrong"). Without the token, the
-                // actual requests are sent as before and report a problem, if there is one.
-                GetIphoneJsonCore(string.Format("api/v1/friendships/{0}/following/", userId),
-                                  new JObject { { "count", 1 } }, false, retry: false);
-            }
-            catch (ConnectionException)
-            {
-            }
-        }
-
-        private JObject GetIphoneJsonCore(string path, JObject parameters, bool usePost, bool retry = true)
+        private JObject GetIphoneJsonCore(string path, JObject parameters, bool usePost)
         {
             using (Session tempsession = CopySession(_session, RequestTimeout))
             {
                 // Set headers to simulate an API request from iPad
-                tempsession.Headers["ig-intended-user-id"] = PyStr.Str(UserId);
+                // Omitted rather than sent as "None" when the user is not known (as in Instaloader 4.16).
+                if (!UserId.IsNone())
+                    tempsession.Headers["ig-intended-user-id"] = PyStr.Str(UserId);
                 tempsession.Headers["x-pigeon-rawclienttime"] =
                     PyDateTime.Now().Timestamp().ToString("F6", CultureInfo.InvariantCulture);
 
                 // Add headers obtained from previous iPad request
                 tempsession.Headers.Update(IphoneHeaders);
+
+                // Most endpoints of the app interface (story tray, reels media, user info) require the app's bearer
+                // token. Instagram hands one out (ig-set-authorization) only in answers of the few endpoints that
+                // still accept requests without it, and refuses some of those for some accounts. The token is derived
+                // from the session cookies, so construct it if none is known yet (as Instaloader 4.16 does).
+                if (!tempsession.Headers.ContainsKey("authorization") && !UserId.IsNone())
+                {
+                    string sessionid = tempsession.Cookies.Get("sessionid");
+                    if (!string.IsNullOrEmpty(sessionid))
+                    {
+                        string token = PyJson.Dumps(new JObject { { "ds_user_id", PyStr.Str(UserId) }, { "sessionid", sessionid } },
+                                                    null, ",", ":");
+                        tempsession.Headers["authorization"] = "Bearer IGT:2:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
+                    }
+                }
 
                 // Extract key information from cookies if we haven't got it already from a previous request
                 var headerCookiesMapping = new[]
@@ -1060,7 +1058,7 @@ namespace InstaloaderSharp
 
                 var responseHeaders = new HttpHeaders();
                 JObject response = GetJson(path, parameters, "i.instagram.com", tempsession, responseHeaders: responseHeaders,
-                                           usePost: usePost, retry: retry);
+                                           usePost: usePost);
 
                 // Extract the ig-set-* headers and use them in the next request
                 foreach (var kv in responseHeaders)

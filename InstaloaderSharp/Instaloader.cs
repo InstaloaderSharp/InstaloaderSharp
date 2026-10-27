@@ -168,7 +168,7 @@ namespace InstaloaderSharp
         /// Version of Python Instaloader that this is a port of. It is written into the "instaloader" section of
         /// JSON metadata and resume files, so that they are identical to the ones written by Python Instaloader.
         /// </summary>
-        public const string InstaloaderVersion = "4.15.5";
+        public const string InstaloaderVersion = "4.16";
 
         #region module-level functions
 
@@ -1420,9 +1420,20 @@ namespace InstaloaderSharp
                                           userHighlights.Count.ToString(CultureInfo.InvariantCulture).PadLeft(width),
                                           userHighlight.Title, name));
                 DownloadHighlightCover(userHighlight, highlightTarget);
-                int totalcount = userHighlight.Itemcount;
+                // Retrieving one highlight's items can fail on its own; continue with the other highlights then.
+                // (Instaloader stops downloading the profile's highlights.)
+                int totalcount = 0;
+                List<StoryItem> highlightItems = null;
+                Highlight currentHighlight = userHighlight;
+                Context.ErrorCatcher(string.Format("Retrieve highlights \"{0}\" from user {1}", userHighlight.Title, name), () =>
+                {
+                    totalcount = currentHighlight.Itemcount;
+                    highlightItems = currentHighlight.GetItems().ToList();
+                });
+                if (highlightItems == null)
+                    continue;
                 int count = 1;
-                foreach (StoryItem item in userHighlight.GetItems())
+                foreach (StoryItem item in highlightItems)
                 {
                     if (storyitemFilter != null && !storyitemFilter(item))
                     {
