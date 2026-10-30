@@ -1,6 +1,6 @@
 # InstaloaderSharp
 
-A C# / .NET Framework version of [Instaloader](https://github.com/instaloader/instaloader).
+A C# / .NET Framework version of [Instaloader](https://instaloader.github.io/).
 It downloads pictures and videos along with their captions and other metadata from Instagram: whole
 profiles, single posts, hashtags, locations, your feed, your saved posts, stories and highlights.
 
