@@ -468,6 +468,10 @@ so resume files get saved), and the `with` context managers are methods taking a
   https://www.instagram.com/"*). Instaloader sends profile posts the website's way too (through `api/graphql`),
   but its other logged-in queries without these fields, so that it cannot load single posts, reels or profile
   details for such accounts.
+* The login is checked by asking Instagram's app interface which user the session belongs to
+  (`api/v1/accounts/current_user/`). Instaloader checks it with a GraphQL query that Instagram redirects to its
+  home page for some accounts, so that a valid session is reported as *"Not logged in. Are you logged in
+  successfully in firefox?"*. That query is still used as a fallback, and with `--no-iphone`.
 * Reels (`--reels`) are loaded with the query of the website's reels tab, since Instagram answers Instaloader's
   older reels query without reels when it is sent the website's way.
 * Tagged posts (`--tagged`) are loaded with the query of the website's tagged tab. Instaloader's query only

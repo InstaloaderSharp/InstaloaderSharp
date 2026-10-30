@@ -395,6 +395,24 @@ namespace InstaloaderSharp
         /// <summary>Not meant to be used directly, use <see cref="Instaloader.TestLogin"/>.</summary>
         public string TestLogin()
         {
+            // Instaloader's check below is a GraphQL query without the web app's request fields, which Instagram
+            // redirects to its home page for some accounts, so that a valid session counts as not logged in. The
+            // app's current_user endpoint names the logged-in user, with the token derived from the session cookies.
+            if (IphoneSupport && !UserId.IsNone() && !string.IsNullOrEmpty(_session.Cookies.Get("sessionid")))
+            {
+                try
+                {
+                    // One attempt: if it fails, the check below reports the problem.
+                    JObject current = GetIphoneJsonCore("api/v1/accounts/current_user/", new JObject { { "edit", "true" } },
+                                                        false, MaxConnectionAttempts > 0 ? MaxConnectionAttempts : 1);
+                    JToken currentUser = current.Get("user");
+                    if (currentUser != null && !currentUser.Get("username").IsNone())
+                        return (string)currentUser["username"];
+                }
+                catch (Exception err) when (err is AbortDownloadException || err is ConnectionException)
+                {
+                }
+            }
             try
             {
                 JObject data = GraphqlQuery("d6f4427fbe92d846298cf93df0b937d3", new JObject());
@@ -986,7 +1004,7 @@ namespace InstaloaderSharp
             return GetIphoneJsonCore(path, parameters, usePost);
         }
 
-        private JObject GetIphoneJsonCore(string path, JObject parameters, bool usePost)
+        private JObject GetIphoneJsonCore(string path, JObject parameters, bool usePost, int attempt = 1)
         {
             using (Session tempsession = CopySession(_session, RequestTimeout))
             {
@@ -1057,8 +1075,7 @@ namespace InstaloaderSharp
                     tempsession.Cookies.Clear();
 
                 var responseHeaders = new HttpHeaders();
-                JObject response = GetJson(path, parameters, "i.instagram.com", tempsession, responseHeaders: responseHeaders,
-                                           usePost: usePost);
+                JObject response = GetJson(path, parameters, "i.instagram.com", tempsession, attempt, responseHeaders, usePost);
 
                 // Extract the ig-set-* headers and use them in the next request
                 foreach (var kv in responseHeaders)
