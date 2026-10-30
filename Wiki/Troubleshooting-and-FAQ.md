@@ -42,6 +42,9 @@ Recent Chrome versions encrypt cookies so that only Chrome can read them. Use Fi
 **It imports the wrong account.**
 `--load-cookies` uses the account that is logged in in the browser's default profile. Log in with the right account in the browser, or use `--cookiefile` for another browser profile. The program prints which account it logged in as.
 
+**`Not logged in. Are you logged in successfully in firefox?` after `HTTP redirect from https://www.instagram.com/graphql/query to https://www.instagram.com/`.**
+Older versions of InstaloaderSharp, like Instaloader, check the login with a query that Instagram redirects for some accounts, although the session is valid. Update to the [latest version](https://github.com/InstaloaderSharp/InstaloaderSharp/releases), which checks the login through Instagram's app interface. With `--no-iphone`, the old check is used.
+
 **The session stopped working.**
 Sessions end when you log out in the browser you imported them from, change your password, or Instagram ends them. Log in again with `--login` (you are asked for the password) or import fresh cookies with `--load-cookies`.
 
