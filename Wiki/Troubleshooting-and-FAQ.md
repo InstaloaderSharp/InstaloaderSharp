@@ -107,6 +107,9 @@ The download links in the file have expired. Download the post by its shortcode 
 **`--stories` downloads nothing.**
 Stories need a login, and only exist for 24 hours. The profile may have no current story, or you may not be allowed to see it (private profile, close friends).
 
+**`--stories` or `--highlights` fails with `JSON Query to graphql/query: Expecting value: line 1 column 1 (char 0)` after `HTTP redirect from https://www.instagram.com/graphql/query to https://www.instagram.com/`.**
+Older versions of InstaloaderSharp, like Instaloader, load stories and highlights with queries that Instagram redirects for some accounts. Update to the [latest version](https://github.com/InstaloaderSharp/InstaloaderSharp/releases), which loads them through Instagram's app interface. With `--no-iphone`, the old queries are used.
+
 **`--reels` fails with `InvalidCastException: Unable to cast object of type 'InstaloaderSharp.Json.JValue' to type 'InstaloaderSharp.Json.JObject'`.**
 An older version of InstaloaderSharp used a reels query that Instagram no longer answers. Update to the [latest version](https://github.com/InstaloaderSharp/InstaloaderSharp/releases).
 

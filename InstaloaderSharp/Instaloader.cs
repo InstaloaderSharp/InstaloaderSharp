@@ -1205,12 +1205,53 @@ namespace InstaloaderSharp
             const int useridsPerQuery = 50;
             for (int i = 0; i < ids.Count; i += useridsPerQuery)
             {
-                var chunk = new JArray(ids.Skip(i).Take(useridsPerQuery));
+                List<JToken> chunkIds = ids.Skip(i).Take(useridsPerQuery).ToList();
+                List<Story> iphoneStories = GetIphoneStories(chunkIds);
+                if (iphoneStories != null)
+                {
+                    foreach (Story story in iphoneStories)
+                        yield return story;
+                    continue;
+                }
+                var chunk = new JArray(chunkIds);
                 JToken stories = Context.GraphqlQuery("303a4ae99711322310f25250d988f3b7",
                                                       new JObject { { "reel_ids", chunk }, { "precomposed_overlay", false } })["data"];
                 foreach (JToken media in stories["reels_media"].AsIterable())
                     yield return new Story(Context, (JObject)media);
             }
+        }
+
+        /// <summary>
+        /// The stories of the given users from the app's reels_media, or null if the app does not answer.
+        /// Instaloader's GraphQL query is redirected to Instagram's home page for some accounts; it is used when
+        /// the app does not answer, and with --no-iphone.
+        /// </summary>
+        private List<Story> GetIphoneStories(IList<JToken> userids)
+        {
+            if (!Context.IphoneSupport)
+                return null;
+            JObject data;
+            try
+            {
+                data = Context.GetIphoneJson("api/v1/feed/reels_media/?" +
+                                             string.Join("&", userids.Select(id => "reel_ids=" + PyStr.Str(id))),
+                                             new JObject());
+            }
+            catch (Exception err) when (err is QueryReturnedBadRequestException || err is ConnectionException)
+            {
+                Context.Error(string.Format("Unable to fetch stories from the app: {0}", err.Message));
+                return null;
+            }
+            JToken reels = data.Get("reels").Or(new JObject());
+            var stories = new List<Story>();
+            foreach (JToken id in userids)
+            {
+                JToken reel = reels.Get(PyStr.Str(id));
+                // Users without a current story are left out, as in the GraphQL query.
+                if (reel is JObject && reel.Get("items").Or(new JArray()).Truthy && reel.Get("user") is JObject)
+                    stories.Add(Story.FromIphoneReel(Context, (JObject)reel));
+            }
+            return stories;
         }
 
         /// <summary>
@@ -1360,6 +1401,47 @@ namespace InstaloaderSharp
         }
 
         private IEnumerable<Highlight> GetHighlightsImpl(long userid, Profile user)
+        {
+            IEnumerable<Highlight> highlights = GetIphoneHighlights(userid, user) ?? GetGraphqlHighlights(userid, user);
+            foreach (Highlight highlight in highlights)
+                yield return highlight;
+        }
+
+        /// <summary>
+        /// The highlights of a user from the app's highlights tray, or null if the app does not answer.
+        /// Instaloader's GraphQL query is redirected to Instagram's home page for some accounts; it is used when
+        /// the app does not answer, and with --no-iphone.
+        /// </summary>
+        private List<Highlight> GetIphoneHighlights(long userid, Profile user)
+        {
+            if (Context.IphoneSupport)
+            {
+                JObject tray = null;
+                try
+                {
+                    tray = Context.GetIphoneJson(string.Format(CultureInfo.InvariantCulture,
+                                                               "api/v1/highlights/{0}/highlights_tray/", userid), new JObject());
+                }
+                catch (Exception err) when (err is QueryReturnedBadRequestException || err is ConnectionException)
+                {
+                    Context.Error(string.Format("Unable to fetch highlights from the app: {0}", err.Message));
+                }
+                JToken trayItems = tray == null ? null : tray.Get("tray");
+                if (trayItems != null && trayItems.Type == JTokenType.Array)
+                {
+                    var highlights = new List<Highlight>();
+                    foreach (JToken item in trayItems.AsIterable())
+                    {
+                        if (item is JObject && !item.Get("id").IsNone())
+                            highlights.Add(Highlight.FromIphoneTrayItem(Context, (JObject)item, user));
+                    }
+                    return highlights;
+                }
+            }
+            return null;
+        }
+
+        private IEnumerable<Highlight> GetGraphqlHighlights(long userid, Profile user)
         {
             JToken data = Context.GraphqlQuery("7c16654f22c819fb63d1183034a5162f",
                                                new JObject

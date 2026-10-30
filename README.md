@@ -477,9 +477,16 @@ so resume files get saved), and the `with` context managers are methods taking a
 * Tagged posts (`--tagged`) are loaded with the query of the website's tagged tab. Instaloader's query only
   returns the first few tagged posts (5 in a test) and then empty pages, so it stops there. The tagged tab's query
   returns the posts without their dates and videos, so each tagged post is loaded with an extra request.
+* Stories and highlights (`--stories`, `--highlights`, `:stories`) are loaded through Instagram's app interface:
+  the stories and the highlights' items from `api/v1/feed/reels_media/`, the list of highlights from
+  `api/v1/highlights/<ID>/highlights_tray/`. Instaloader uses GraphQL queries that Instagram redirects to its home
+  page for some accounts (*"HTTP redirect from https://www.instagram.com/graphql/query to
+  https://www.instagram.com/"*), so that it downloads no stories or highlights for them. Instaloader's queries are
+  still used when the app does not answer, and with `--no-iphone`. Since the items come from the app, their saved
+  metadata has fewer GraphQL fields; the app's complete item is in `iphone_struct`, as before.
 * Highlights whose items Instagram refuses to list with Instaloader's query (400 "invalid request") are
-  downloaded from the app's `reels_media` answer instead, when logged in. If retrieving one highlight still fails,
-  the other highlights are downloaded; Instaloader stops downloading the profile's highlights then.
+  downloaded too. If retrieving one highlight fails, the other highlights are downloaded; Instaloader stops
+  downloading the profile's highlights then.
 * Restricted profiles (for example age-restricted ones), which Instagram does not show to logged-out
   visitors, are found when logged in: the program reads the profile's ID from the profile page as the session
   sees it, and loads the profile by its ID. Instaloader reports that such profiles do not exist. No similar
