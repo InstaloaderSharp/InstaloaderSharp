@@ -303,6 +303,67 @@ namespace InstaloaderSharp
             IphoneStructField = null;
         }
 
+        /// <summary>
+        /// Creates a Story from a reel of the app's reels_media, in the form of the GraphQL story reels. The reel is
+        /// kept as the items' iPhone struct, so that it is not requested again.
+        /// </summary>
+        internal static Story FromIphoneReel(InstaloaderContext context, JObject reel)
+        {
+            JToken user = reel["user"];
+            var items = new JArray();
+            foreach (JToken item in reel.Get("items", new JArray()).AsIterable())
+                items.Add(StoryItemNodeFromIphoneItem((JObject)item, user));
+            var node = new JObject
+            {
+                { "id", Python.PyStr.Str(reel["id"]) },
+                { "latest_reel_media", reel.Get("latest_reel_media", JValue.Null) },
+                { "seen", reel.Get("seen").Or(JValue.Null) },
+                { "expiring_at", reel.Get("expiring_at", JValue.Null) },
+                { "user", user },
+                { "items", items }
+            };
+            return new Story(context, node) { IphoneStructField = reel };
+        }
+
+        /// <summary>Converts an item of the app's reels_media into the form of the GraphQL story items.</summary>
+        /// <param name="item">The app's item.</param>
+        /// <param name="owner">The app's user of the reel, for items whose user has no username.</param>
+        internal static JObject StoryItemNodeFromIphoneItem(JObject item, JToken owner = null)
+        {
+            JToken mediaType = item.Get("media_type");
+            bool isVideo = mediaType != null && mediaType.Type == JTokenType.Integer && mediaType.ToInt64() == 2;
+            JToken takenAt = item["taken_at"];
+            JToken user = item.Get("user").Or(new JObject());
+            if (user.Get("username").IsNone() && owner is JObject)
+                user = owner;
+            var node = new JObject
+            {
+                { "__typename", isVideo ? "GraphStoryVideo" : "GraphStoryImage" },
+                { "id", Python.PyStr.Str(item["pk"]) },
+                { "is_video", isVideo },
+                { "taken_at_timestamp", takenAt },
+                // The app's highlight items have no expiry; as in the GraphQL items, it is 24 hours after posting.
+                { "expiring_at_timestamp", item.Get("expiring_at").Or(null) ?? (JToken)(takenAt.ToInt64() + 24 * 60 * 60) },
+                { "owner", new JObject { { "id", Python.PyStr.Str(user.Get("pk")) }, { "username", user.Get("username").Or("") } } }
+            };
+            JToken candidates = item.Get("image_versions2").Or(new JObject()).Get("candidates").Or(new JArray());
+            node["display_resources"] = candidates.Truthy
+                ? new JArray { new JObject { { "src", candidates[0]["url"] } } }
+                : new JArray();
+            JToken videos = item.Get("video_versions").Or(new JArray());
+            if (isVideo && videos.Truthy)
+                node["video_resources"] = new JArray { new JObject { { "src", videos[0]["url"] } } };
+            JToken caption = item.Get("caption");
+            JToken captionText = caption is JObject ? caption.Get("text") : null;
+            if (!captionText.IsNone())
+                node["edge_media_to_caption"] = new JObject
+                {
+                    { "edges", new JArray { new JObject { { "node", new JObject { { "text", captionText } } } } } }
+                };
+            node["iphone_struct"] = item;
+            return node;
+        }
+
         public InstaloaderContext Context { get { return ContextField; } }
 
         /// <summary>The raw node structure.</summary>
@@ -473,6 +534,38 @@ namespace InstaloaderSharp
             IphoneStructField = null;
         }
 
+        /// <summary>
+        /// Creates a Highlight from an item of the app's highlights tray, in the form of the GraphQL highlight nodes.
+        /// </summary>
+        internal static Highlight FromIphoneTrayItem(InstaloaderContext context, JObject trayItem, Profile owner)
+        {
+            string id = Python.PyStr.Str(trayItem["id"]);
+            if (id.StartsWith("highlight:", StringComparison.Ordinal))
+                id = id.Substring("highlight:".Length);
+            JToken cover = trayItem.Get("cover_media").Or(new JObject());
+            JToken cropped = cover.Get("cropped_image_version").Or(new JObject()).Get("url", JValue.Null);
+            JToken full = cover.Get("full_image_version").Or(new JObject()).Get("url").Or(cropped);
+            JToken user = trayItem.Get("user").Or(new JObject());
+            var node = new JObject
+            {
+                { "__typename", "GraphHighlightReel" },
+                { "id", id },
+                { "title", trayItem.Get("title", JValue.Null) },
+                { "cover_media", new JObject { { "thumbnail_src", full } } },
+                { "cover_media_cropped_thumbnail", new JObject { { "url", cropped } } },
+                { "latest_reel_media", trayItem.Get("latest_reel_media", JValue.Null) },
+                {
+                    "owner", new JObject
+                    {
+                        { "id", Python.PyStr.Str(user.Get("pk") ?? user.Get("id")) },
+                        { "profile_pic_url", user.Get("profile_pic_url", JValue.Null) },
+                        { "username", user.Get("username", JValue.Null) }
+                    }
+                }
+            };
+            return new Highlight(context, node, owner);
+        }
+
         public override string PyRepr()
         {
             return string.Format("<Highlight by {0}: {1}>", OwnerUsername, Title);
@@ -508,69 +601,40 @@ namespace InstaloaderSharp
         {
             if (_items == null || !_items.Truthy)
             {
-                try
+                // The app's reels_media, which is requested for the items' best versions anyway, contains the items
+                // too. Instaloader's GraphQL query is redirected to Instagram's home page for some accounts, and
+                // refused with 400 "invalid request" for some highlights (also in Instaloader 4.16); it is used when
+                // the app does not answer with the highlight, and with --no-iphone.
+                if (ContextField.IphoneSupport && ContextField.IsLoggedIn)
                 {
-                    _items = ContextField.GraphqlQuery(
-                        "45246d3fe16ccc6577e0bd297a5db1ab",
-                        new JObject
-                        {
-                            { "reel_ids", new JArray() },
-                            { "tag_names", new JArray() },
-                            { "location_ids", new JArray() },
-                            { "highlight_reel_ids", new JArray { HighlightId.ToString(CultureInfo.InvariantCulture) } },
-                            { "precomposed_overlay", false }
-                        })["data"]["reels_media"][0]["items"].AsArray();
+                    try
+                    {
+                        FetchIphoneStruct();
+                    }
+                    catch (Exception ex) when (ex is QueryReturnedBadRequestException || ex is ConnectionException)
+                    {
+                        ContextField.Error(string.Format("Unable to fetch the items of {0} from the app: {1}", this, ex.Message));
+                    }
+                    if (IphoneStructField != null)
+                    {
+                        var items = new JArray();
+                        foreach (JToken item in IphoneStructField.Get("items", new JArray()).AsIterable())
+                            items.Add(StoryItemNodeFromIphoneItem((JObject)item, IphoneStructField.Get("user")));
+                        _items = items;
+                        return;
+                    }
                 }
-                catch (Exception ex) when ((ex is QueryReturnedBadRequestException || ex is ConnectionException) &&
-                                           ContextField.IphoneSupport && ContextField.IsLoggedIn)
-                {
-                    // Instagram refuses this query for some highlights with 400 "invalid request" (also in
-                    // Instaloader 4.16). The app's reels_media, which is requested for the items' best versions
-                    // anyway, contains the items too.
-                    FetchIphoneStruct();
-                    if (IphoneStructField == null)
-                        throw;
-                    var items = new JArray();
-                    foreach (JToken item in IphoneStructField.Get("items", new JArray()).AsIterable())
-                        items.Add(StoryItemNodeFromIphoneItem((JObject)item));
-                    _items = items;
-                }
+                _items = ContextField.GraphqlQuery(
+                    "45246d3fe16ccc6577e0bd297a5db1ab",
+                    new JObject
+                    {
+                        { "reel_ids", new JArray() },
+                        { "tag_names", new JArray() },
+                        { "location_ids", new JArray() },
+                        { "highlight_reel_ids", new JArray { HighlightId.ToString(CultureInfo.InvariantCulture) } },
+                        { "precomposed_overlay", false }
+                    })["data"]["reels_media"][0]["items"].AsArray();
             }
-        }
-
-        /// <summary>Converts an item of the app's reels_media into the form of the GraphQL story items.</summary>
-        private static JObject StoryItemNodeFromIphoneItem(JObject item)
-        {
-            JToken mediaType = item.Get("media_type");
-            bool isVideo = mediaType != null && mediaType.Type == JTokenType.Integer && mediaType.ToInt64() == 2;
-            JToken takenAt = item["taken_at"];
-            JToken user = item.Get("user").Or(new JObject());
-            var node = new JObject
-            {
-                { "__typename", isVideo ? "GraphStoryVideo" : "GraphStoryImage" },
-                { "id", Python.PyStr.Str(item["pk"]) },
-                { "is_video", isVideo },
-                { "taken_at_timestamp", takenAt },
-                // The app's highlight items have no expiry; as in the GraphQL items, it is 24 hours after posting.
-                { "expiring_at_timestamp", item.Get("expiring_at").Or(null) ?? (JToken)(takenAt.ToInt64() + 24 * 60 * 60) },
-                { "owner", new JObject { { "id", Python.PyStr.Str(user.Get("pk")) }, { "username", user.Get("username").Or("") } } }
-            };
-            JToken candidates = item.Get("image_versions2").Or(new JObject()).Get("candidates").Or(new JArray());
-            node["display_resources"] = candidates.Truthy
-                ? new JArray { new JObject { { "src", candidates[0]["url"] } } }
-                : new JArray();
-            JToken videos = item.Get("video_versions").Or(new JArray());
-            if (isVideo && videos.Truthy)
-                node["video_resources"] = new JArray { new JObject { { "src", videos[0]["url"] } } };
-            JToken caption = item.Get("caption");
-            JToken captionText = caption is JObject ? caption.Get("text") : null;
-            if (!captionText.IsNone())
-                node["edge_media_to_caption"] = new JObject
-                {
-                    { "edges", new JArray { new JObject { { "node", new JObject { { "text", captionText } } } } } }
-                };
-            node["iphone_struct"] = item;
-            return node;
         }
 
         protected override void FetchIphoneStruct()

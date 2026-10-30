@@ -167,5 +167,61 @@ namespace InstaloaderSharp.Tests
             Assert.IsFalse(profile.AsDict().ContainsKey("edge_owner_to_timeline_media"));
             Assert.AreEqual("<Profile someuser (25025320)>", profile.ToString());
         }
+
+        [TestMethod]
+        public void StoryFromIphoneReel()
+        {
+            // A reel as the app's reels_media returns it: the items' users have no username.
+            JObject reel = PyJson.Loads(
+                "{\"id\":\"25025320\",\"latest_reel_media\":1793325578,\"seen\":0,\"expiring_at\":1793411978," +
+                "\"user\":{\"id\":\"25025320\",\"pk\":25025320,\"username\":\"SomeUser\"},\"items\":[" +
+                "{\"pk\":4019028500106552572,\"taken_at\":1793325553,\"expiring_at\":1793411953,\"media_type\":1," +
+                "\"user\":{\"pk\":25025320},\"image_versions2\":{\"candidates\":[{\"url\":\"https://x/a.jpg\"}]}}," +
+                "{\"pk\":4019028705006752700,\"taken_at\":1793325578,\"expiring_at\":1793411978,\"media_type\":2," +
+                "\"user\":{\"pk\":25025320},\"caption\":{\"text\":\"Hi #There\"}," +
+                "\"image_versions2\":{\"candidates\":[{\"url\":\"https://x/b.jpg\"}]}," +
+                "\"video_versions\":[{\"url\":\"https://x/b.mp4\"}]}]}").AsObject();
+            Story story = Story.FromIphoneReel(TestData.Context(), reel);
+            Assert.AreEqual("someuser", story.OwnerUsername);
+            Assert.AreEqual(25025320L, story.OwnerId);
+            Assert.AreEqual(2, story.Itemcount);
+            Assert.IsNull(story.LastSeenUtc);
+            Assert.AreEqual(new DateTime(2026, 10, 30, 1, 59, 38, DateTimeKind.Utc), story.LatestMediaUtc);
+            // Newest first, as with the GraphQL items.
+            List<StoryItem> items = story.GetItems().ToList();
+            Assert.AreEqual(4019028705006752700L, items[0].Mediaid);
+            Assert.IsTrue(items[0].IsVideo);
+            Assert.AreEqual("GraphStoryVideo", items[0].Typename);
+            Assert.AreEqual("Hi #There", items[0].Caption);
+            CollectionAssert.AreEqual(new List<string> { "there" }, items[0].CaptionHashtags);
+            Assert.AreEqual(4019028500106552572L, items[1].Mediaid);
+            Assert.AreEqual("https://x/a.jpg", items[1].Url);
+            Assert.AreEqual(new DateTime(2026, 10, 31, 1, 59, 13, DateTimeKind.Utc), items[1].ExpiringUtc);
+            Assert.AreEqual("someuser", items[1].OwnerUsername);
+            JObject dict = items[1].AsDict();
+            Assert.AreEqual("SomeUser", (string)dict["owner"]["username"]);
+            Assert.IsTrue(dict.ContainsKey("iphone_struct"));
+        }
+
+        [TestMethod]
+        public void HighlightFromIphoneTrayItem()
+        {
+            // An item of the app's highlights tray.
+            JObject trayItem = PyJson.Loads(
+                "{\"id\":\"highlight:17926879011426551\",\"title\":\"Me\",\"media_count\":1," +
+                "\"latest_reel_media\":1778020554,\"cover_media\":{\"cropped_image_version\":" +
+                "{\"url\":\"https://x/cover150.jpg\"},\"full_image_version\":null}," +
+                "\"user\":{\"id\":\"25025320\",\"pk\":25025320,\"username\":\"someuser\"," +
+                "\"profile_pic_url\":\"https://x/pic.jpg\"}}").AsObject();
+            Highlight highlight = Highlight.FromIphoneTrayItem(TestData.Context(), trayItem, null);
+            Assert.AreEqual(17926879011426551L, highlight.HighlightId);
+            Assert.AreEqual(17926879011426551L, highlight.UniqueId);
+            Assert.AreEqual("Me", highlight.Title);
+            Assert.AreEqual("https://x/cover150.jpg", highlight.CoverUrl);
+            Assert.AreEqual("https://x/cover150.jpg", highlight.CoverCroppedUrl);
+            Assert.AreEqual("someuser", highlight.OwnerUsername);
+            Assert.AreEqual(25025320L, highlight.OwnerId);
+            Assert.AreEqual("<Highlight by someuser: Me>", highlight.ToString());
+        }
     }
 }

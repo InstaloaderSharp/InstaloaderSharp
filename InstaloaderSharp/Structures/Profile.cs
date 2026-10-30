@@ -449,6 +449,25 @@ namespace InstaloaderSharp
         {
             get
             {
+                if (_hasPublicStory != true && _context.IphoneSupport && _context.IsLoggedIn)
+                {
+                    // Logged in, Instaloader's GraphQL query below is redirected to Instagram's home page for some
+                    // accounts. The app's reels_media holds the profile's current story if the viewer can see it.
+                    try
+                    {
+                        JObject reels = _context.GetIphoneJson(
+                            string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                                          "api/v1/feed/reels_media/?reel_ids={0}", Userid), new JObject());
+                        JToken reel = reels.Get("reels").Or(new JObject())
+                                           .Get(Userid.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        _hasPublicStory = reel is JObject && reel.Get("items").Or(new JArray()).Truthy;
+                        return _hasPublicStory.Value;
+                    }
+                    catch (Exception err) when (err is QueryReturnedBadRequestException || err is ConnectionException)
+                    {
+                        _context.Error(string.Format("Unable to fetch the story of {0} from the app: {1}", Username, err.Message));
+                    }
+                }
                 if (_hasPublicStory != true)
                 {
                     ObtainMetadata();
