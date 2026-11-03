@@ -15,7 +15,7 @@ Instagram limits how many requests an account or a connection may make in a give
 ## How requests are paced
 
 - **A short pause before every request**, of random length (on average under two seconds, at most 15 seconds), so that the program does not send requests in a rigid rhythm.
-- **Limits per kind of request.** The program counts its requests to Instagram by kind (each kind of query, the app interface, other pages) and waits when one kind reaches its limit within a sliding window of about 10 minutes: 200 requests of each query kind, 275 queries in total, and 75 other requests. Requests to Instagram's app interface are limited separately, over 30 minutes.
+- **Limits per kind of request.** The program counts its requests to Instagram by kind (each kind of query, the app interface, other pages) and waits when one kind reaches its limit within a sliding window of about 10 minutes. Logged in: 100 requests of each query kind, 150 queries in total, and 75 other requests; requests to Instagram's app interface are limited separately, to 100 per 30 minutes. Logged out, the limits are Instaloader's: 200 of each query kind, 275 queries in total, 75 other requests, and 199 app requests per 30 minutes.
 - **Downloads of pictures and videos are not limited**, since they come from Instagram's content servers.
 
 When a limit is reached, the program says how long it waits:
@@ -24,7 +24,7 @@ When a limit is reached, the program says how long it waits:
 Too many queries in the last time. Need to wait 7 minutes, until 14:32.
 ```
 
-Waiting is normal for large downloads and needs no action. The limits are the same as Instaloader's.
+Waiting is normal for large downloads and needs no action. Logged in, the limits are half of Instaloader's: Instagram limits the requests of an account, and has asked accounts that stayed within Instaloader's limits for a captcha, then answered them with `feedback_required`. Instagram does not publish its limits, so these values are a cautious guess. In [library use](Library-use), a custom `RateController` can change them (`CountPerSlidingWindow`, `GraphqlCountPerSlidingWindow`, `IphoneCountPerSlidingWindow`).
 
 ## When Instagram says "too many requests"
 
@@ -62,6 +62,14 @@ Download aborted: ... "checkpoint_required" ...
 ```
 
 and exits with code 4. Resume information is saved, so you can continue after solving the problem (usually by logging in to Instagram in a browser and confirming the request).
+
+The download also stops when Instagram answers a logged-in query with a web page instead of data, usually a verification (captcha):
+
+```
+Instagram answered https://www.instagram.com/graphql/query with a web page instead of data, probably a verification (captcha). Open https://www.instagram.com/ in the web browser you are logged in with, complete the verification and run the download again.
+```
+
+The verification only goes away when it is completed in a web browser, so retrying would only send more requests that Instagram counts against the account. Instaloader retries, and goes on with the next targets, until Instagram answers with `feedback_required`.
 
 `--abort-on` stops the download in the same way when Instagram answers with one of the given HTTP status codes, without retrying:
 

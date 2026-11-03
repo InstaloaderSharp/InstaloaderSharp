@@ -661,8 +661,15 @@ namespace InstaloaderSharp
                 {
                     try
                     {
+                        // The post details contain the same video versions as the app's
+                        // media info, which Instaloader requests for every video: the same sizes and files in all
+                        // 956 videos compared. Using them saves a request per video, which for profiles with many
+                        // reels got accounts flagged (a captcha, then feedback_required).
+                        JToken nodeVersions = _node.Get("video_versions");
                         var urls = new List<string>();
-                        foreach (JToken version in IphoneStruct["video_versions"].AsIterable())
+                        foreach (JToken version in (nodeVersions is JArray && nodeVersions.Truthy
+                                                        ? nodeVersions
+                                                        : IphoneStruct["video_versions"]).AsIterable())
                             urls.Add((string)version["url"]);
                         versionUrls.AddRange(urls);
                     }

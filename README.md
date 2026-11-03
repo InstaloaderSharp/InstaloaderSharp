@@ -387,6 +387,9 @@ profile2
   or re-import your browser cookies.
 * **"Checkpoint required":** open the given link in a browser, confirm the login there, then try again,
   or use `--load-cookies`.
+* **"Instagram answered ... with a web page instead of data, probably a verification (captcha)":** open
+  Instagram in the web browser you are logged in with, complete the verification, and let the account rest for a
+  while before downloading again.
 * **"Profile ... does not exist":** check the spelling; the profile may have been renamed, deleted, or it
   blocked you. When logged in, the program tries again anonymously in that case.
 * **Errors during a run** are printed when they occur and repeated at the end; the program continues with
@@ -474,6 +477,22 @@ so resume files get saved), and the `with` context managers are methods taking a
   successfully in firefox?"*. That query is still used as a fallback, and with `--no-iphone`.
 * Reels (`--reels`) are loaded with the query of the website's reels tab, since Instagram answers Instaloader's
   older reels query without reels when it is sent the website's way.
+* Logged in, a video whose details already contain its video versions (as those of reels, tagged posts and single
+  posts do) is downloaded without asking Instagram's app for its media info
+  (`api/v1/media/<ID>/info/`). Instaloader asks for it for every video, for the best version; the versions in it
+  were the same sizes and files in all 956 videos compared, so the same file is downloaded. Each reel takes one
+  request instead of two: the first `--reels` download of a profile with 1,200 reels took about 2,500 requests,
+  enough for Instagram to flag the account (a captcha, then `feedback_required`). The saved metadata of these videos
+  has no `iphone_struct`.
+* Logged in, the program allows half as many requests as Instaloader within the same time: 100 of each kind of
+  query and 150 queries in total per 10 minutes, and 100 requests to the app interface per 30 minutes. Instagram
+  limits the requests of an account, and flagged accounts that stayed within Instaloader's limits. Logged out,
+  Instaloader's limits apply. Large downloads take longer.
+* When Instagram answers a logged-in query with a web page instead of data, usually a verification (captcha), the
+  download stops with *"Instagram answered ... with a web page instead of data, probably a verification
+  (captcha)"* (exit code 4, resume information is saved). Instaloader retries each query and goes on with the
+  next targets, which get the same page and count against the account, until Instagram answers with
+  `feedback_required`. The verification has to be completed in a web browser; it cannot be bypassed.
 * Tagged posts (`--tagged`) are loaded with the query of the website's tagged tab. Instaloader's query only
   returns the first few tagged posts (5 in a test) and then empty pages, so it stops there. The tagged tab's query
   returns the posts without their dates and videos, so each tagged post is loaded with an extra request.
