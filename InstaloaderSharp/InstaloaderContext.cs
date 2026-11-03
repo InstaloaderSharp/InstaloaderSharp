@@ -716,6 +716,18 @@ namespace InstaloaderSharp
                     throw new TooManyRequestsException(ResponseError(resp));
                 if (resp.StatusCode != 200)
                     throw new ConnectionException(ResponseError(resp));
+                // Instagram answers the queries of a flagged account with a verification page (a captcha) instead
+                // of data, without redirecting them. Instaloader retries them and goes on with the next targets,
+                // which get the same page, and which Instagram counts against the account; the verification only
+                // goes away when it is completed in a web browser. So the download stops at the first such page.
+                // Only the API endpoints are checked: pages queried with __a=1 (locations, hashtags) may be answered
+                // with the page itself, now that Instagram no longer returns their data.
+                if (IsLoggedIn && redirectedTo.Count == 0 && (path.StartsWith("graphql/") || path.StartsWith("api/")) &&
+                    (resp.Headers.Get("Content-Type") ?? "").StartsWith("text/html", StringComparison.OrdinalIgnoreCase))
+                    throw new AbortDownloadException(string.Format(
+                        "Instagram answered https://{0}/{1} with a web page instead of data, probably a verification " +
+                        "(captcha). Open https://www.instagram.com/ in the web browser you are logged in with, complete " +
+                        "the verification and run the download again.", host, path));
                 JToken respJson = resp.Json();
                 if (respJson.ContainsKey("status") && !JToken.DeepEquals(respJson["status"], "ok"))
                     throw new ConnectionException(ResponseError(resp));
@@ -1369,10 +1381,34 @@ namespace InstaloaderSharp
         /// This is called by <see cref="QueryWaittime"/> and allows to simply customize wait times before queries
         /// at query_type granularity. Consider overriding <see cref="QueryWaittime"/> directly if you need more
         /// control.
+        ///
+        /// Logged in, half of Instaloader's 200 GraphQL queries per type are allowed: Instagram limits the requests
+        /// of an account, and has flagged accounts (captcha, then feedback_required) that stayed within
+        /// Instaloader's limits.
         /// </summary>
         public virtual int CountPerSlidingWindow(string queryType)
         {
-            return queryType == "other" ? 75 : 200;
+            if (queryType == "other")
+                return 75;
+            return Context.IsLoggedIn ? 100 : 200;
+        }
+
+        /// <summary>
+        /// Return how many GraphQL queries of all types together can be done within a sliding window of 10
+        /// minutes: Instaloader's 275, or 150 when logged in (see <see cref="CountPerSlidingWindow"/>).
+        /// </summary>
+        public virtual int GraphqlCountPerSlidingWindow()
+        {
+            return Context.IsLoggedIn ? 150 : 275;
+        }
+
+        /// <summary>
+        /// Return how many requests to Instagram's app interface can be done within a sliding window of 30
+        /// minutes: Instaloader's 199, or 100 when logged in (see <see cref="CountPerSlidingWindow"/>).
+        /// </summary>
+        public virtual int IphoneCountPerSlidingWindow()
+        {
+            return Context.IsLoggedIn ? 100 : 199;
         }
 
         private List<double> ReqsInSlidingWindow(string queryType, double currentTime, double window)
@@ -1426,7 +1462,7 @@ namespace InstaloaderSharp
                 if (queryType == "iphone" || queryType == "other")
                     return 0.0;
                 const double gqlAccumulatedSlidingWindow = 600;
-                const int gqlAccumulatedMaxCount = 275;
+                int gqlAccumulatedMaxCount = GraphqlCountPerSlidingWindow();
                 List<double> reqs = ReqsInSlidingWindow(null, currentTime, gqlAccumulatedSlidingWindow);
                 if (reqs.Count < gqlAccumulatedMaxCount)
                     return 0.0;
@@ -1456,7 +1492,7 @@ namespace InstaloaderSharp
                 if (queryType == "iphone")
                 {
                     List<double> reqs = ReqsInSlidingWindow(queryType, currentTime, iphoneSlidingWindow);
-                    if (reqs.Count >= 199)
+                    if (reqs.Count >= IphoneCountPerSlidingWindow())
                         return Min(reqs) + iphoneSlidingWindow + 18;
                 }
                 return 0.0;

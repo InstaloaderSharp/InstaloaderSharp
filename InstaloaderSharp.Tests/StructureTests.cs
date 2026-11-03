@@ -204,6 +204,21 @@ namespace InstaloaderSharp.Tests
         }
 
         [TestMethod]
+        public void VideoUrlUsesTheVideoVersionsOfTheNode()
+        {
+            // Logged in, a video whose node has its video versions (as from the post details) is not looked up in
+            // the app's media info: that would be a request, which fails here and is logged as an error.
+            InstaloaderContext context = TestData.Context();
+            context.Username = "someuser";
+            JObject node = PyJson.Loads(
+                "{\"shortcode\":\"DeraQlgorHA\",\"id\":\"3700000000000000001\",\"__typename\":\"GraphVideo\"," +
+                "\"is_video\":true,\"video_url\":\"https://x/a.mp4\",\"video_versions\":[{\"url\":\"https://x/a.mp4\"}]}").AsObject();
+            var post = new Post(context, node);
+            Assert.AreEqual("https://x/a.mp4", post.VideoUrl);
+            Assert.AreEqual(0, context.ErrorLog.Count);
+        }
+
+        [TestMethod]
         public void HighlightFromIphoneTrayItem()
         {
             // An item of the app's highlights tray.

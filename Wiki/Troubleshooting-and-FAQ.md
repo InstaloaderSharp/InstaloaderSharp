@@ -67,6 +67,12 @@ Instagram limited the account or the connection. The program waits and retries. 
 **`Download aborted: ... feedback_required` or `challenge_required`.**
 Instagram has restricted the account and wants you to confirm something. Open Instagram in a browser or the app with that account and follow the instructions there. Then continue; resume information was saved.
 
+**`Instagram answered ... with a web page instead of data, probably a verification (captcha).`**
+Instagram has flagged the account and asks for a verification. Open Instagram in the web browser you are logged in with and complete it; it cannot be done by the program. Then let the account rest for a while, preferably a day, before downloading again; downloading right away usually leads to `feedback_required`. Resume information was saved. Older versions of InstaloaderSharp, like Instaloader, report this as `JSON Query to graphql/query: Expecting value: line 1 column 1 (char 0)`.
+
+**Downloading the reels of a profile with many reels got the account flagged.**
+Each reel is loaded with a request of its own, since the query of the website's reels tab returns them without their dates, captions and videos. Older versions of InstaloaderSharp, like Instaloader, also ask the app for each video's media info, two requests per reel; update to the [latest version](https://github.com/InstaloaderSharp/InstaloaderSharp/releases), which needs one. The first `--reels` download of a profile with many reels still takes about one request per reel; with `--latest-stamps` or `--fast-update`, later downloads only load the new reels. Spread first downloads of large profiles over several days, one profile at a time.
+
 **`Instagram keeps redirecting ...` or endless `HTTP redirect from ... to https://www.instagram.com/` lines.**
 Instagram redirects every request of the account, usually because it is suspended, restricted or logged out. Open Instagram in a web browser with that account and follow the instructions there; a suspended account may have to be appealed. Older versions of InstaloaderSharp, like Instaloader, follow these redirects forever; press Ctrl+C to stop them.
 
