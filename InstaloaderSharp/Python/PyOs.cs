@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using Microsoft.Win32.SafeHandles;
 
 namespace InstaloaderSharp.Python
 {
@@ -242,12 +245,69 @@ namespace InstaloaderSharp.Python
                 File.Move(src, dst);
         }
 
-        /// <summary>os.utime(path, (atime, mtime)) with mtime given as instant.</summary>
+        /// <summary>
+        /// os.utime(path, (atime, mtime)) with mtime given as instant. On Windows the file is opened once, like
+        /// Python does, only to change its attributes: .NET's File.SetLastWriteTimeUtc opens it once per time and
+        /// refuses it (NotSupportedException) when the device check of the open file fails, which happened on a
+        /// network share right after a download. Files on network shares can be briefly unavailable, so a failure
+        /// is tried twice more, a second apart.
+        /// </summary>
         public static void UTime(string path, DateTime accessTimeUtc, DateTime modifiedTimeUtc)
         {
-            File.SetLastAccessTimeUtc(path, accessTimeUtc);
-            File.SetLastWriteTimeUtc(path, modifiedTimeUtc);
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    SetFileTimes(path, accessTimeUtc, modifiedTimeUtc);
+                    return;
+                }
+                catch (IOException e) when (attempt < 3 && !(e is FileNotFoundException) && !(e is DirectoryNotFoundException))
+                {
+                    Thread.Sleep(1000);
+                }
+            }
         }
+
+        private static void SetFileTimes(string path, DateTime accessTimeUtc, DateTime modifiedTimeUtc)
+        {
+            if (!IsWindows)
+            {
+                File.SetLastAccessTimeUtc(path, accessTimeUtc);
+                File.SetLastWriteTimeUtc(path, modifiedTimeUtc);
+                return;
+            }
+            long accessTime = accessTimeUtc.ToFileTimeUtc();
+            long modifiedTime = modifiedTimeUtc.ToFileTimeUtc();
+            using (SafeFileHandle handle = CreateFile(path, 0x100 /* FILE_WRITE_ATTRIBUTES */,
+                                                      0x7 /* FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE */,
+                                                      IntPtr.Zero, 3 /* OPEN_EXISTING */,
+                                                      0x02000000 /* FILE_FLAG_BACKUP_SEMANTICS */, IntPtr.Zero))
+            {
+                if (handle.IsInvalid || !SetFileTime(handle, IntPtr.Zero, ref accessTime, ref modifiedTime))
+                    throw LastWin32Error(path);
+            }
+        }
+
+        private static IOException LastWin32Error(string path)
+        {
+            int error = Marshal.GetLastWin32Error();
+            string message = string.Format("{0}: {1}", new Win32Exception(error).Message, PyStr.Repr(path));
+            if (error == 2 /* ERROR_FILE_NOT_FOUND */)
+                return new FileNotFoundException(message, path);
+            if (error == 3 /* ERROR_PATH_NOT_FOUND */)
+                return new DirectoryNotFoundException(message);
+            return new IOException(message, unchecked((int)0x80070000) | error);
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "CreateFileW")]
+        private static extern SafeFileHandle CreateFile(string lpFileName, int dwDesiredAccess, int dwShareMode,
+                                                        IntPtr lpSecurityAttributes, int dwCreationDisposition,
+                                                        int dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetFileTime(SafeFileHandle hFile, IntPtr lpCreationTime, ref long lpLastAccessTime,
+                                               ref long lpLastWriteTime);
 
         /// <summary>
         /// Writes a text file like Python's open(filename, 'w', encoding=...): '\n' is translated to os.linesep.

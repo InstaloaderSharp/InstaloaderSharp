@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using InstaloaderSharp.Python;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -65,6 +67,32 @@ namespace InstaloaderSharp.Tests
             Assert.AreEqual("\"it's\"", PyStr.Repr("it's"));
             Assert.AreEqual("'a\\nb\\x00'", PyStr.Repr("a\nb\0"));
             Assert.AreEqual(-1, PyStr.CompareCodePoints(((char)0xFFFF).ToString(), emoji), "code points, not UTF-16 units");
+        }
+
+        [TestMethod]
+        public void UTimeSetsAccessAndModificationTime()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                var accessTime = new DateTime(2026, 11, 3, 14, 40, 33, DateTimeKind.Utc);
+                var modifiedTime = new DateTime(2024, 11, 16, 17, 8, 6, DateTimeKind.Utc);
+                PyOs.UTime(path, accessTime, modifiedTime);
+                Assert.AreEqual(accessTime, File.GetLastAccessTimeUtc(path));
+                Assert.AreEqual(modifiedTime, File.GetLastWriteTimeUtc(path));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(FileNotFoundException))]
+        public void UTimeOfMissingFileThrowsFileNotFound()
+        {
+            PyOs.UTime(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".jpg"), DateTime.UtcNow,
+                       DateTime.UtcNow);
         }
     }
 }
